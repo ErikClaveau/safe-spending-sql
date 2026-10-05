@@ -9,6 +9,7 @@ will be reused in the real migration.
 ```bash
 docker compose -f lab/rls/docker-compose.yml up -d --wait
 uv sync
+uv run python lab/rls/lab_db.py   # (re)builds roles, schema and data; idempotent
 uv run pytest
 docker compose -f lab/rls/docker-compose.yml down
 ```
@@ -24,5 +25,6 @@ anything. The superuser is only used to create roles and the schema.
 
 ## Layout
 
-- `sql/`: scripts for roles, schema, policies and data.
+- `sql/`: scripts for roles, schema, policies and data, each run as the role that owns that step.
+- `lab_db.py`: connection and build helpers shared by the scripts and the tests.
 - `tests/`: pytest tests, one per acceptance criterion.
