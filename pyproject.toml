@@ -1,0 +1,16 @@
+[project]
+name = "safe-spending-sql"
+version = "0.0.0"
+description = "Text-to-SQL assistant over synthetic banking data, with RLS-based isolation"
+requires-python = ">=3.12"
+dependencies = []
+
+[dependency-groups]
+dev = [
+    "pytest>=8",
+    "psycopg[binary]>=3.2",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["lab/rls/tests"]
+addopts = "-ra"
