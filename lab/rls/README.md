@@ -10,7 +10,7 @@ will be reused in the real migration.
 docker compose -f lab/rls/docker-compose.yml up -d --wait
 uv sync
 uv run python lab/rls/lab_db.py   # (re)builds roles, schema and data; idempotent
-uv run pytest
+uv run pytest lab/rls/tests       # the root `pytest` runs the real suite in tests/
 docker compose -f lab/rls/docker-compose.yml down
 ```
 
