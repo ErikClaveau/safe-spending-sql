@@ -288,7 +288,7 @@ Campos por traza: `request_id`, `user_id` (pseudónimo), `commit_sha`, `model`, 
 | ADR | Pregunta | Opciones | Criterios | Estado |
 |---|---|---|---|---|
 | 001 | ¿Qué motor de BD? | Postgres · DuckDB | RLS nativo, realismo de producción, simplicidad | **Aceptado: PostgreSQL** en todos los entornos; DuckDB descartado |
-| 002 | ¿Cómo imponer el aislamiento? | RLS sola · RLS + reescritura SQL como defensa en profundidad | Garantía, testabilidad, complejidad | **Propuesto: solo RLS**, sin reescritura, con test de configuración en CI; pasa a aceptado tras el laboratorio de RLS |
+| 002 | ¿Cómo imponer el aislamiento? | RLS sola · RLS + reescritura SQL como defensa en profundidad | Garantía, testabilidad, complejidad | **Aceptado: solo RLS**, sin reescritura, con test de configuración en CI. Validado por el laboratorio de RLS el 2026-10-05; los `GRANT` son la barrera de escritura, no el modo de solo lectura |
 | 003 | ¿Qué framework de evals? | Inspect AI · promptfoo · propio | Métricas custom, CI, visibilidad en portfolio | Pendiente |
 | 004 | ¿Qué modelo usar? | Frontera · local | Calidad, coste, baseline para el proyecto 3 | Pendiente |
 | 005 | ¿Qué ve el LLM, tablas crudas o vistas? | Tablas · vistas · mixto | Precisión, superficie de error | **Aceptado: solo vistas** a nivel de movimiento (`v_movimientos`, `v_gastos`, `v_ingresos`); tablas en inglés, vistas en castellano. Enmendado el 2026-10-03: todo movimiento no interno está en `v_gastos` o en `v_ingresos` |
@@ -314,7 +314,7 @@ Campos por traza: `request_id`, `user_id` (pseudónimo), `commit_sha`, `model`, 
 - [ ] Postgres: vistas y seguridad (`security_invoker`, `security_barrier`, funciones `LEAKPROOF`).
 - [ ] Postgres: límites por rol (`statement_timeout`, `idle_in_transaction_session_timeout`) y superficie expuesta (`pg_catalog`, `information_schema`, funciones peligrosas).
 - [ ] Tests de RLS en pytest (`SET ROLE`, Postgres con Docker Compose o testcontainers).
-- [ ] Laboratorio de RLS: dos usuarios, una política e intentos deliberados de romperla (propietario, vista sin `security_invoker`, `SET` sin `LOCAL`, variable sin fijar).
+- [x] Laboratorio de RLS (hecho el 2026-10-05, ADR-002): dos usuarios, una política e intentos deliberados de romperla (propietario, vista sin `security_invoker`, `SET` sin `LOCAL`, variable sin fijar).
 - [ ] Capacidades de sqlglot para validar AST y hacer allowlist de objetos (sin inyección de filtros: ADR-002).
 - [ ] Prompt injection a través de datos recuperados: patrones y defensas.
 - [ ] Metodología de evals de Hamel Husain y Shreya Shankar (análisis de errores, LLM-as-judge calibrado).
@@ -381,3 +381,4 @@ Regla: si una semana se desborda, recortar alcance (menos categorías de pregunt
 | 2026-10-01 | ADR-002 propuesto: aislamiento solo con RLS, sin reescritura del SQL. `user_id` desnormalizado en `transactions` con FK compuesta, roles `app_owner`/`app_loader`/`app_reader`, política con fallo cerrado y nuevos tests (contaminación del pool y configuración). Regla de contrapartes personales en el generador (§5.2). |
 | 2026-10-01 | ADR-005 aceptado: el LLM solo consulta vistas semánticas a nivel de movimiento (`v_movimientos`, `v_gastos`, `v_ingresos`). Tablas base renombradas a inglés, vistas en castellano, diccionario de datos en inglés. sqlglot se mantiene como validador (nunca reescribe). Versión del esquema semántico en experimentos y trazas. |
 | 2026-10-03 | Diseño del generador cerrado (`docs/generator-design.md`): datos operativos frente a etiquetas, splits por `user_id`, fecha de referencia 2026-09-15, escenarios y trampas con canarios. Modelo de datos ampliado (`exchange_rate`, `counterparty_account_id`, `iban`). ADR-005 enmendado: todo movimiento no interno está en `v_gastos` o en `v_ingresos`. Nuevo puerto `Clock`, nueva métrica de inyección exitosa y backlog ampliado. |
+| 2026-10-05 | ADR-002 aceptado tras el laboratorio de RLS (`lab/rls/`, 47 tests): `FORCE` y `security_invoker` son capas independientes; los `GRANT` son la barrera de escritura porque `app_reader` puede salir del modo de solo lectura antes de la primera consulta; el executor debe abrir `BEGIN READ ONLY` y sqlglot rechazar cualquier `SET`. Verificación de configuración con descubrimiento estructural y controles negativos. |
