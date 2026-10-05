@@ -85,13 +85,28 @@ def test_c2_security_invoker_view_respects_rls(user_id):
     assert count("app_reader", None, "v_movimientos") == 0
 
 
-def test_c2_view_without_invoker_is_safe_only_thanks_to_force():
+@pytest.fixture
+def insecure_view(fresh_lab):
+    """Deliberately wrong twin of v_movimientos, only for the criterion 2 contrast.
+
+    It runs with the privileges of its owner instead of the caller. It is created
+    here, not in sql/02_schema.sql, so the baseline schema stays configuration-clean.
+    """
+    with connect("app_owner", autocommit=True) as conn:
+        conn.execute(
+            "CREATE VIEW v_movimientos_inseguro AS "
+            "SELECT tx_id, account_id, booking_date, amount, description FROM transactions"
+        )
+        conn.execute("GRANT SELECT ON v_movimientos_inseguro TO app_reader")
+
+
+def test_c2_view_without_invoker_is_safe_only_thanks_to_force(insecure_view):
     # The view runs as its owner (app_owner). FORCE subjects the owner to RLS and no
     # policy covers it, so the insecure view returns nothing instead of leaking.
     assert count("app_reader", 1, "v_movimientos_inseguro") == 0
 
 
-def test_c2_view_without_invoker_leaks_when_force_is_removed(fresh_lab):
+def test_c2_view_without_invoker_leaks_when_force_is_removed(insecure_view):
     with connect("app_owner", autocommit=True) as conn:
         conn.execute("ALTER TABLE transactions NO FORCE ROW LEVEL SECURITY")
     # The owner now bypasses RLS and the view runs with the owner's rights.

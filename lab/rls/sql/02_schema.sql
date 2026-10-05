@@ -51,15 +51,9 @@ CREATE VIEW v_movimientos WITH (security_invoker = true) AS
     SELECT tx_id, account_id, booking_date, amount, description
     FROM transactions;
 
--- Deliberately wrong twin, only for the criterion 2 contrast. It runs with the
--- privileges of its owner instead of the caller. Never reuse outside the lab.
-CREATE VIEW v_movimientos_inseguro AS
-    SELECT tx_id, account_id, booking_date, amount, description
-    FROM transactions;
-
 -- Grants. With security_invoker, Postgres checks the base tables against app_reader,
 -- so it needs SELECT on them too: only the sqlglot allowlist keeps the LLM on views.
 GRANT USAGE ON SCHEMA app TO app_reader, app_loader;
 GRANT SELECT ON users, accounts, transactions TO app_reader;
-GRANT SELECT ON v_movimientos, v_movimientos_inseguro TO app_reader;
+GRANT SELECT ON v_movimientos TO app_reader;
 GRANT INSERT ON users, accounts, transactions TO app_loader;
