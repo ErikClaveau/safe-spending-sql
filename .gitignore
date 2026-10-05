@@ -219,6 +219,6 @@ __marimo__/
 # Streamlit
 .streamlit/secrets.toml
 
-# Custom rules
+# Custom rules for this project
 data/
 *.parquet
