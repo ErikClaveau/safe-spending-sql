@@ -10,40 +10,7 @@ import pytest
 
 from safe_spending.db import settings
 from conftest import TEST_DB
-
-
-def seed_base(conn):
-    conn.execute("INSERT INTO categories VALUES (1, 'Supermercados', 'Alimentación')")
-    conn.execute("INSERT INTO merchants VALUES (1, 'MERCADONA', '5411')")
-    conn.execute("INSERT INTO users VALUES (1, 'Ana', 'Alicante', '2024-09-16')")
-    conn.execute("INSERT INTO users VALUES (2, 'Beto', 'Madrid', '2024-09-16')")
-    conn.execute("INSERT INTO accounts VALUES (10, 1, 'ES0000000000000000000010', 'EUR')")
-    conn.execute("INSERT INTO accounts VALUES (11, 1, 'ES0000000000000000000011', 'EUR')")
-    conn.execute("INSERT INTO accounts VALUES (20, 2, 'ES0000000000000000000020', 'EUR')")
-
-
-def add_tx(conn, **overrides):
-    row = {
-        "tx_id": 1,
-        "account_id": 10,
-        "user_id": 1,
-        "booking_date": "2026-09-01",
-        "value_date": "2026-09-01",
-        "amount": -42.50,
-        "currency": "EUR",
-        "exchange_rate": None,
-        "amount_eur": -42.50,
-        "description_raw": "COMPRA TARJ. 5402XXXX MERCADONA ALICANTE",
-        "counterparty": None,
-        "tx_code": "CARD_PURCHASE",
-        "merchant_id": 1,
-        "category_id": 1,
-        "counterparty_account_id": None,
-    }
-    row.update(overrides)
-    columns = ", ".join(row)
-    placeholders = ", ".join(["%s"] * len(row))
-    conn.execute(f"INSERT INTO transactions ({columns}) VALUES ({placeholders})", list(row.values()))
+from seed import add_tx, seed_base
 
 
 @pytest.fixture
@@ -108,6 +75,23 @@ def test_check_constraints_reject_inconsistent_rows(loader, overrides):
 )
 def test_foreign_keys_reject_inconsistent_rows(loader, overrides):
     with pytest.raises(psycopg.errors.ForeignKeyViolation):
+        add_tx(loader, **overrides)
+
+
+@pytest.mark.parametrize(
+    "overrides",
+    [
+        {"tx_code": "CARD_PURCHASE", "amount": 10, "amount_eur": 10},
+        {"tx_code": "SALARY", "merchant_id": None, "amount": -10, "amount_eur": -10},
+        {"tx_code": "CARD_REFUND", "amount": -10, "amount_eur": -10},
+        {"tx_code": "FEE", "merchant_id": None, "amount": 0, "amount_eur": 0},
+    ],
+    ids=["purchase-with-positive-amount", "salary-with-negative-amount", "refund-with-negative-amount", "zero-amount"],
+)
+def test_amount_sign_must_match_tx_code(loader, overrides):
+    # This is what lets the views split every non-internal movement into exactly one of
+    # v_gastos / v_ingresos.
+    with pytest.raises(psycopg.errors.CheckViolation):
         add_tx(loader, **overrides)
 
 
