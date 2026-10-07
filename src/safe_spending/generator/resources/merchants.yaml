@@ -1,0 +1,87 @@
+# Merchant catalog (design 4.2): companies only, never people. Real national chains for
+# realism; local invented merchants for the long tail arrive in a later slice.
+#
+# channel:
+#   card_present / card_online  card purchases, amounts ~ lognormal(median_eur, sigma)
+#   subscription                fixed monthly card charge of price_eur
+#   direct_debit                monthly receipt in monthly_eur [low, high] under legal_name
+# weight: relative frequency among a user's habitual merchants of the category.
+# variants: names as they appear on statements; {n4} is replaced by 4 random digits.
+
+merchants:
+  # Alimentación
+  - {name: MERCADONA, mcc: "5411", category: Supermercados, channel: card_present, median_eur: 24, sigma: 0.6, weight: 10, variants: ["MERCADONA", "MERCADONA S.A.", "MERCADONA {n4}"]}
+  - {name: CARREFOUR, mcc: "5411", category: Supermercados, channel: card_present, median_eur: 38, sigma: 0.6, weight: 6, variants: ["CARREFOUR", "CARREFOUR EXPRESS", "CARREFOUR {n4}"]}
+  - {name: LIDL, mcc: "5411", category: Supermercados, channel: card_present, median_eur: 27, sigma: 0.55, weight: 6, variants: ["LIDL", "LIDL SUPERMERCADOS S.A.U."]}
+  - {name: DIA, mcc: "5411", category: Supermercados, channel: card_present, median_eur: 19, sigma: 0.55, weight: 4, variants: ["DIA", "SUPERMERCADOS DIA {n4}"]}
+  - {name: ALCAMPO, mcc: "5411", category: Supermercados, channel: card_present, median_eur: 52, sigma: 0.6, weight: 2}
+  - {name: EROSKI, mcc: "5411", category: Supermercados, channel: card_present, median_eur: 33, sigma: 0.6, weight: 2}
+  - {name: MCDONALDS, mcc: "5814", category: Restaurantes y bares, channel: card_present, median_eur: 9, sigma: 0.4, weight: 6, variants: ["MCDONALDS", "MCDONALD'S {n4}"]}
+  - {name: BURGER KING, mcc: "5814", category: Restaurantes y bares, channel: card_present, median_eur: 10, sigma: 0.4, weight: 4}
+  - {name: STARBUCKS, mcc: "5814", category: Restaurantes y bares, channel: card_present, median_eur: 6, sigma: 0.35, weight: 4}
+  - {name: 100 MONTADITOS, mcc: "5812", category: Restaurantes y bares, channel: card_present, median_eur: 16, sigma: 0.45, weight: 3, variants: ["100 MONTADITOS", "LA SUREÑA 100 MONTADITOS"]}
+  - {name: TGB, mcc: "5812", category: Restaurantes y bares, channel: card_present, median_eur: 14, sigma: 0.45, weight: 2}
+  - {name: FOSTERS HOLLYWOOD, mcc: "5812", category: Restaurantes y bares, channel: card_present, median_eur: 24, sigma: 0.5, weight: 2}
+  - {name: GLOVO, mcc: "5812", category: Comida a domicilio, channel: card_online, median_eur: 17, sigma: 0.4, weight: 6, variants: ["GLOVO", "GLOVOAPP23"]}
+  - {name: JUST EAT, mcc: "5812", category: Comida a domicilio, channel: card_online, median_eur: 19, sigma: 0.4, weight: 4}
+  - {name: UBER EATS, mcc: "5812", category: Comida a domicilio, channel: card_online, median_eur: 21, sigma: 0.4, weight: 3}
+
+  # Transporte
+  - {name: RENFE, mcc: "4112", category: Transporte público, channel: card_online, median_eur: 14, sigma: 0.7, weight: 5, variants: ["RENFE", "RENFE VIAJEROS"]}
+  - {name: ALSA, mcc: "4131", category: Transporte público, channel: card_online, median_eur: 18, sigma: 0.6, weight: 2}
+  - {name: UBER, mcc: "4121", category: Taxi y VTC, channel: card_online, median_eur: 11, sigma: 0.5, weight: 6, variants: ["UBER *TRIP", "UBER BV"]}
+  - {name: CABIFY, mcc: "4121", category: Taxi y VTC, channel: card_online, median_eur: 12, sigma: 0.5, weight: 4}
+  - {name: FREE NOW, mcc: "4121", category: Taxi y VTC, channel: card_online, median_eur: 10, sigma: 0.5, weight: 2}
+
+  # Compras
+  - {name: ZARA, mcc: "5651", category: Ropa y calzado, channel: card_present, median_eur: 42, sigma: 0.6, weight: 8, variants: ["ZARA", "ZARA ESPAÑA S.A."]}
+  - {name: H&M, mcc: "5651", category: Ropa y calzado, channel: card_present, median_eur: 36, sigma: 0.6, weight: 5, variants: ["H&M", "H&M HENNES & MAURITZ"]}
+  - {name: MANGO, mcc: "5651", category: Ropa y calzado, channel: card_present, median_eur: 45, sigma: 0.6, weight: 4}
+  - {name: PULL&BEAR, mcc: "5651", category: Ropa y calzado, channel: card_present, median_eur: 30, sigma: 0.55, weight: 3}
+  - {name: PRIMARK, mcc: "5651", category: Ropa y calzado, channel: card_present, median_eur: 34, sigma: 0.6, weight: 3}
+  - {name: MEDIAMARKT, mcc: "5732", category: Electrónica, channel: card_present, median_eur: 70, sigma: 0.9, weight: 5}
+  - {name: PCCOMPONENTES, mcc: "5732", category: Electrónica, channel: card_online, median_eur: 85, sigma: 0.9, weight: 4}
+  - {name: FNAC, mcc: "5732", category: Electrónica, channel: card_present, median_eur: 40, sigma: 0.8, weight: 2}
+  - {name: IKEA, mcc: "5712", category: Hogar y bricolaje, channel: card_present, median_eur: 55, sigma: 0.8, weight: 5}
+  - {name: LEROY MERLIN, mcc: "5200", category: Hogar y bricolaje, channel: card_present, median_eur: 38, sigma: 0.8, weight: 4}
+  - {name: AMAZON, mcc: "5942", category: Compras online, channel: card_online, median_eur: 24, sigma: 0.8, weight: 10, variants: ["AMAZON", "AMZN MKTP ES", "AMAZON.ES"]}
+  - {name: ZALANDO, mcc: "5651", category: Compras online, channel: card_online, median_eur: 55, sigma: 0.6, weight: 3}
+  - {name: ALIEXPRESS, mcc: "5399", category: Compras online, channel: card_online, median_eur: 13, sigma: 0.7, weight: 3}
+  - {name: EL CORTE INGLES, mcc: "5311", category: Compras online, channel: card_online, median_eur: 48, sigma: 0.7, weight: 3}
+
+  # Ocio y viajes
+  - {name: CINESA, mcc: "7832", category: Ocio y cultura, channel: card_present, median_eur: 12, sigma: 0.4, weight: 5}
+  - {name: YELMO, mcc: "7832", category: Ocio y cultura, channel: card_present, median_eur: 11, sigma: 0.4, weight: 3}
+  - {name: TICKETMASTER, mcc: "7922", category: Ocio y cultura, channel: card_online, median_eur: 58, sigma: 0.5, weight: 2}
+  - {name: STEAM, mcc: "5816", category: Ocio y cultura, channel: card_online, median_eur: 22, sigma: 0.7, weight: 2}
+  - {name: VUELING, mcc: "4511", category: Viajes y alojamiento, channel: card_online, median_eur: 95, sigma: 0.5, weight: 4}
+  - {name: RYANAIR, mcc: "4511", category: Viajes y alojamiento, channel: card_online, median_eur: 80, sigma: 0.55, weight: 4}
+  - {name: IBERIA, mcc: "4511", category: Viajes y alojamiento, channel: card_online, median_eur: 140, sigma: 0.5, weight: 2}
+  - {name: BOOKING.COM, mcc: "7011", category: Viajes y alojamiento, channel: card_online, median_eur: 130, sigma: 0.6, weight: 4}
+  - {name: AIRBNB, mcc: "7011", category: Viajes y alojamiento, channel: card_online, median_eur: 150, sigma: 0.6, weight: 3}
+
+  # Salud y cuidado personal
+  - {name: PROMOFARMA, mcc: "5912", category: Farmacia, channel: card_online, median_eur: 24, sigma: 0.6, weight: 4}
+  - {name: DR. FARMA, mcc: "5912", category: Farmacia, channel: card_present, median_eur: 12, sigma: 0.6, weight: 3}
+  - {name: SEPHORA, mcc: "5977", category: Cuidado personal, channel: card_present, median_eur: 38, sigma: 0.6, weight: 4}
+  - {name: DOUGLAS, mcc: "5977", category: Cuidado personal, channel: card_present, median_eur: 34, sigma: 0.6, weight: 3}
+  - {name: PRIMOR, mcc: "5977", category: Cuidado personal, channel: card_present, median_eur: 18, sigma: 0.5, weight: 3}
+
+  # Suscripciones: cargo mensual fijo con tarjeta
+  - {name: NETFLIX, mcc: "4899", category: Suscripciones digitales, channel: subscription, price_eur: 12.99, weight: 5, variants: ["NETFLIX.COM", "NETFLIX"]}
+  - {name: SPOTIFY, mcc: "4899", category: Suscripciones digitales, channel: subscription, price_eur: 10.99, weight: 5, variants: ["SPOTIFY", "SPOTIFY AB"]}
+  - {name: DISNEY PLUS, mcc: "4899", category: Suscripciones digitales, channel: subscription, price_eur: 8.99, weight: 3}
+  - {name: HBO MAX, mcc: "4899", category: Suscripciones digitales, channel: subscription, price_eur: 9.99, weight: 3}
+  - {name: AMAZON PRIME, mcc: "4899", category: Suscripciones digitales, channel: subscription, price_eur: 4.99, weight: 4, variants: ["AMAZON PRIME", "AMZN PRIME ES"]}
+  - {name: ICLOUD, mcc: "4899", category: Suscripciones digitales, channel: subscription, price_eur: 2.99, weight: 3, variants: ["APPLE.COM/BILL"]}
+  - {name: BASIC-FIT, mcc: "7997", category: Deporte, channel: subscription, price_eur: 29.99, weight: 3}
+
+  # Recibos domiciliados: suministros e internet y telefonía
+  - {name: IBERDROLA, mcc: "4900", category: Suministros, channel: direct_debit, kind: electricity, monthly_eur: [35, 75], weight: 4, legal_name: IBERDROLA CLIENTES SAU}
+  - {name: ENDESA, mcc: "4900", category: Suministros, channel: direct_debit, kind: electricity, monthly_eur: [35, 75], weight: 3, legal_name: ENDESA ENERGIA SAU}
+  - {name: NATURGY, mcc: "4900", category: Suministros, channel: direct_debit, kind: electricity, monthly_eur: [35, 75], weight: 3, legal_name: NATURGY IBERIA SA}
+  - {name: MOVISTAR, mcc: "4814", category: Internet y telefonía, channel: direct_debit, kind: internet, monthly_eur: [45, 70], weight: 4, legal_name: TELEFONICA DE ESPANA SAU}
+  - {name: VODAFONE, mcc: "4814", category: Internet y telefonía, channel: direct_debit, kind: internet, monthly_eur: [40, 65], weight: 3, legal_name: VODAFONE ESPANA SAU}
+  - {name: ORANGE, mcc: "4814", category: Internet y telefonía, channel: direct_debit, kind: internet, monthly_eur: [38, 60], weight: 3, legal_name: ORANGE ESPAGNE SAU}
+  - {name: DIGI, mcc: "4814", category: Internet y telefonía, channel: direct_debit, kind: internet, monthly_eur: [20, 35], weight: 2, legal_name: DIGI SPAIN TELECOM SLU}
+  - {name: LYCAMOBILE, mcc: "4814", category: Internet y telefonía, channel: direct_debit, kind: mobile, monthly_eur: [8, 20], weight: 2, legal_name: LYCAMOBILE SLU}

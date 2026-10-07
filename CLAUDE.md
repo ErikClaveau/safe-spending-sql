@@ -9,9 +9,10 @@ Text-to-SQL assistant over **synthetic** personal banking data (Postgres RLS iso
 - `docs/` — design, written in Spanish (keep new docs/ADRs in Spanish unless the language decision in the plan §14 week 6 changes it).
 - `lab/rls/` — disposable RLS lab that validated ADR-002 (its own Postgres, own tests). Not part of the product.
 - `src/safe_spending/db/` — the real database layer: `settings`, `bootstrap`, `config_checks`, `sqlfile` and the Alembic environment with migrations `0001` (base tables, RLS, grants) and `0002` (semantic views, `COMMENT ON`, sign `CHECK`).
-- `tests/db/` — tests of the real schema.
+- `src/safe_spending/generator/` — the synthetic data generator, slice 1 of 4 (walking skeleton: one archetype, recurring payments and card purchases, Parquet + manifest). `src/safe_spending/db/loader.py` loads it into Postgres as `app_loader`. `src/safe_spending/clock/` is the `Clock` port (`FixedClock`, `SystemClock`). `src/safe_spending/schemas.py` (manifest contract) and `tables.py` (operational vs label table names) are shared by generator and loader on purpose: neither may import the other.
+- `tests/db/`, `tests/generator/` — tests of the real schema, the loader and the generator.
 
-Not built yet: the data generator and loader, the golden set, the pipeline (LLM, sqlglot, executor, API) and CI.
+Generator slices still to do (design in `docs/generator-design.md`): scenario injectors and traps with labels (slice 2), all archetypes, calendar/holidays, FX, refunds, fees, internal transfers, Bizum (slice 3), reproducibility CI gate, statistical report and dataset card (slice 4). Not built yet: the golden set, the pipeline (LLM, sqlglot, executor, API) and CI.
 
 Code, comments and test names are in **English**; `docs/` and the Spanish semantic layer (view/column names, `COMMENT ON` for the LLM) are in Spanish.
 
@@ -31,6 +32,8 @@ uv run safe-spending-bootstrap           # database, roles and empty schema (ide
 uv run alembic upgrade head              # apply migrations as app_owner
 uv run pytest                            # real suite in tests/ (uses database safe_spending_test)
 uv run pytest tests/db/test_migrations.py::test_downgrade_and_upgrade_round_trip   # one test
+uv run safe-spending-generate            # dataset -> data/dataset (Parquet + manifest.json; data/ is git-ignored)
+uv run safe-spending-load --reset        # verify manifest, then load as app_loader (--reset empties the tables first)
 
 docker compose -f lab/rls/docker-compose.yml up -d --wait   # RLS lab Postgres
 uv run pytest lab/rls/tests              # lab suite (separate Postgres; not run by plain `pytest`)
@@ -45,6 +48,7 @@ Connection settings come from env vars with development defaults (`DB_HOST`, `DB
 - Every new table with user data needs a `user_id` column, `ENABLE` + `FORCE ROW LEVEL SECURITY` and an `aislamiento_usuario` policy `TO app_reader` (same shape as in `0001`). `config_checks` discovers tables by the `user_id` column and views by schema, and `tests/db/test_schema_config.py` fails if any is missing a policy, `FORCE` or `security_invoker`.
 - Grants are explicit per table (no default privileges). `app_reader` needs `SELECT` on base tables because views are `security_invoker`; the sqlglot allowlist, not `GRANT`s, keeps the LLM on the views.
 - The sign of `amount_eur` is fixed by `tx_code` (`CHECK`), which is what makes every non-internal movement fall in exactly one of `v_gastos`/`v_ingresos`; the generator must respect it. Every column of every semantic view must be in `docs/data-dictionary.md` (test-enforced, both ways) and have a `COMMENT ON`.
+- **Generator rules:** amounts are integer cents, never `float`; every user and stage has its own `SeedSequence` stream (`generator/rng.py`: append new stages, never reorder), so adding a user or changing one stage never alters other data (tested); the pipeline never reads the system date (use the `Clock` port); `description_raw` uses its own stream; labels never go to Postgres (the loader only knows the five operational tables). Put generator resources in `generator/resources/`, not in a folder called `data/` (git-ignored).
 - Tests that break the configuration on purpose use the `remigrate` fixture, which drops the whole `app` schema and migrates again (a downgrade alone leaves objects added outside migrations).
 
 ## Architecture (planned)
