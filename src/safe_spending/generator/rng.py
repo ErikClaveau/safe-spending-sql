@@ -6,18 +6,30 @@ user's data or any other stage of the same user. User id 0 is the global stream 
 shared elements.
 """
 
+from enum import StrEnum
+
 import numpy as np
 
 
-# Order matters: the index is part of the stream key. Append new stages, never reorder.
-STAGES = ("profile", "recurring", "purchases", "special", "scenarios", "traps", "text")
+class Stage(StrEnum):
+    # Order matters: the index is part of the stream key. Append new stages, never reorder.
+    PROFILE = "profile"
+    RECURRING = "recurring"
+    PURCHASES = "purchases"
+    SPECIAL = "special"
+    SCENARIOS = "scenarios"
+    TRAPS = "traps"
+    TEXT = "text"
+
+
+STAGES = tuple(Stage)
 GLOBAL = 0
 
 
 def stream(
         seed: int,
         user_id: int,
-        stage: str
+        stage: Stage
 ) -> np.random.Generator:
     key = (user_id, STAGES.index(stage))
 

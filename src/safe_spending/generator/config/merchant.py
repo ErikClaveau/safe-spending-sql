@@ -2,6 +2,8 @@ import math
 
 from pydantic import BaseModel, ConfigDict
 
+from safe_spending.generator.enums import Channel, UtilityKind
+
 
 class Merchant(BaseModel):
     model_config = ConfigDict(frozen=True)
@@ -10,14 +12,14 @@ class Merchant(BaseModel):
     name: str
     mcc: str
     category: str
-    channel: str  # card_present | card_online | subscription | direct_debit
+    channel: Channel
     weight: float
     variants: tuple[str, ...]
     median_eur: float | None = None
     sigma: float | None = None
     price_eur: float | None = None
     monthly_eur: tuple[float, float] | None = None
-    kind: str | None = None
+    kind: UtilityKind | None = None
     legal_name: str | None = None
 
     @property

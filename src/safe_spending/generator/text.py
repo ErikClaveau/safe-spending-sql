@@ -9,14 +9,21 @@ import unicodedata
 import numpy as np
 
 from safe_spending.generator.config import Merchant
+from safe_spending.generator.enums import Channel
 
 
-def statement(text: str, max_length: int) -> str:
+def statement(
+        text: str,
+        max_length: int
+) -> str:
     ascii_text = unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode("ascii")
     return " ".join(ascii_text.upper().split())[:max_length].rstrip()
 
 
-def pick_variant(merchant: Merchant, rng: np.random.Generator) -> str:
+def pick_variant(
+        merchant: Merchant,
+        rng: np.random.Generator
+) -> str:
     """One of the names the merchant appears under: the first one most of the time."""
     variants = merchant.variants
     if len(variants) == 1 or rng.random() < 0.7:
@@ -28,20 +35,35 @@ def pick_variant(merchant: Merchant, rng: np.random.Generator) -> str:
     return variant
 
 
-def card_purchase(merchant: Merchant, card_prefix: str, city: str, rng: np.random.Generator) -> str:
+def card_purchase(
+        merchant: Merchant,
+        card_prefix: str,
+        city: str,
+        rng: np.random.Generator
+) -> str:
     variant = pick_variant(merchant, rng)
-    if merchant.channel == "card_present":
+    if merchant.channel == Channel.CARD_PRESENT:
         return f"COMPRA TARJ. {card_prefix}XXXX {variant} {city}"
     return f"COMPRA TARJ. {card_prefix}XXXX {variant}"
 
 
-def direct_debit(merchant: Merchant, rng: np.random.Generator) -> str:
+def direct_debit(
+        merchant: Merchant,
+        rng: np.random.Generator
+) -> str:
     return f"RECIBO {merchant.legal_name} {int(rng.integers(10**8, 10**9))}"
 
 
-def salary(employer: str, extra: bool) -> str:
+def salary(
+        employer: str,
+        extra: bool
+) -> str:
     return f"NOMINA {employer}" + (" PAGA EXTRA" if extra else "")
 
 
-def rent_transfer(landlord: str, month: int, year: int) -> str:
+def rent_transfer(
+        landlord: str,
+        month: int,
+        year: int
+) -> str:
     return f"TRANSFERENCIA A FAVOR DE {landlord} CONCEPTO ALQUILER {month:02d}/{year}"

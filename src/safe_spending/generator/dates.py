@@ -5,6 +5,8 @@ from calendar import monthrange
 from datetime import date, timedelta
 from typing import Iterator
 
+MONTHS_PER_YEAR = 12
+
 
 def is_business_day(day: date) -> bool:
     return day.weekday() < 5
@@ -33,7 +35,7 @@ def months(
     while (year, month) <= (end.year, end.month):
         yield year, month
         month += 1
-        if month == 13:
+        if month > MONTHS_PER_YEAR:
             year, month = year + 1, 1
 
 

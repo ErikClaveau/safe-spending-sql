@@ -11,7 +11,7 @@ from safe_spending.generator.enums import TxCode
 from safe_spending.generator.events import Event, purchase_events, recurring_events
 from safe_spending.generator.money import to_decimal
 from safe_spending.generator.profile import Profile, build_profile
-from safe_spending.generator.rng import stream
+from safe_spending.generator.rng import Stage, stream
 from safe_spending.generator.schemas import (
     AccountRow,
     CategoryRow,
@@ -56,12 +56,12 @@ def simulate_user(
 ) -> UserSimulation:
     """Everything one user owns, from that user's own random streams only."""
     profile = build_profile(config, catalog, user_id)
-    events = recurring_events(config, catalog, profile, stream(config.seed, user_id, "recurring"), end)
-    events += purchase_events(config, catalog, profile, stream(config.seed, user_id, "purchases"), end)
+    events = recurring_events(config, catalog, profile, stream(config.seed, user_id, Stage.RECURRING), end)
+    events += purchase_events(config, catalog, profile, stream(config.seed, user_id, Stage.PURCHASES), end)
     # Stable sort: ties on the same day keep their generation order.
     events.sort(key=lambda e: e.booking_date)
 
-    text_rng = stream(config.seed, user_id, "text")
+    text_rng = stream(config.seed, user_id, Stage.TEXT)
     account_id = user_id * ACCOUNTS_PER_USER_STRIDE + 1
     transactions, labels = [], []
     for sequence, event in enumerate(events, start=1):
@@ -100,14 +100,30 @@ def simulate_user(
     )
 
 
-def generate(config: GeneratorConfig, catalog: Catalog, clock: Clock) -> Dataset:
+def generate(
+        config: GeneratorConfig,
+        catalog: Catalog,
+        clock: Clock
+) -> Dataset:
     end = clock.today()
     dataset = Dataset()
     dataset.categories = [
-        CategoryRow(category_id=c.category_id, name=c.name, group_name=c.group_name) for c in catalog.categories
+        CategoryRow(
+            category_id=c.category_id,
+            name=c.name,
+            group_name=c.group_name
+        )
+        for c
+        in catalog.categories
     ]
     dataset.merchants = [
-        MerchantRow(merchant_id=m.merchant_id, normalized_name=m.name, mcc=m.mcc) for m in catalog.merchants
+        MerchantRow(
+            merchant_id=m.merchant_id,
+            normalized_name=m.name,
+            mcc=m.mcc
+        )
+        for m
+        in catalog.merchants
     ]
     for user_id in range(1, config.n_users + 1):
         user = simulate_user(config, catalog, user_id, end)
@@ -116,4 +132,5 @@ def generate(config: GeneratorConfig, catalog: Catalog, clock: Clock) -> Dataset
         dataset.transactions.extend(user.transactions)
         dataset.tx_labels.extend(user.tx_labels)
         dataset.user_labels.append(user.user_label)
+
     return dataset
