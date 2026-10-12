@@ -100,7 +100,9 @@ def test_income_minus_spending_equals_the_balance_change_on_generated_data(loade
         income, = reader_rows(user_id, "SELECT SUM(ingreso_eur) FROM v_ingresos")[0]
         spending, = reader_rows(user_id, "SELECT SUM(gasto_eur) FROM v_gastos")[0]
         assert balance == income - spending
-        assert income > spending > Decimal(0)
+        # Not `income > spending`: the recent-sign-up user has a few weeks of history, without
+        # the extra pays, so they can legitimately spend more than they earn in that window.
+        assert income > Decimal(0) and spending > Decimal(0)
 
 
 def test_people_are_not_in_the_shared_merchant_catalog(loaded):

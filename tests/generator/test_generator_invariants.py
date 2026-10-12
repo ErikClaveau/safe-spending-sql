@@ -9,6 +9,7 @@ import pytest
 from gen_helpers import REFERENCE, build
 from safe_spending.generator import iban
 from safe_spending.generator.config import load_config
+from safe_spending.generator.enums import ScenarioType
 
 PERIOD_START = date(2024, 9, 16)
 OUTFLOWS = {"CARD_PURCHASE", "DIRECT_DEBIT", "TRANSFER_OUT", "BIZUM_OUT", "FEE", "ATM_WITHDRAWAL"}
@@ -99,11 +100,18 @@ def test_categories_and_merchants_are_referenced_consistently(dataset):
         assert t.merchant_id is None or t.merchant_id in merchant_ids
 
 
-def test_every_user_gets_the_expected_recurring_payments(dataset):
+def users_with_short_history(dataset):
+    """Users whose history was cut on purpose by the recent-sign-up scenario."""
+    return {s.user_id for s in dataset.scenarios if s.type == ScenarioType.RECENT_SIGNUP}
+
+
+def test_every_user_with_full_history_gets_the_expected_recurring_payments(dataset):
     counts = defaultdict(Counter)
     for t in dataset.transactions:
         counts[t.user_id][t.tx_code] += 1
     for user_id, c in counts.items():
+        if user_id in users_with_short_history(dataset):
+            continue
         assert c["SALARY"] == 28, user_id  # 24 monthly pays + 4 extra (Dec-24, Jun-25, Dec-25, Jun-26)
         assert c["TRANSFER_OUT"] == 24, user_id  # rent, Oct-2024 to Sep-2026
 
@@ -121,9 +129,11 @@ def test_descriptions_look_like_a_bank_statement(built):
 def test_labels_match_the_operational_data(built):
     config, _, dataset = built
     assert [l.tx_id for l in dataset.tx_labels] == [t.tx_id for t in dataset.transactions]
+    scenario_ids = {s.scenario_id for s in dataset.scenarios}
     for t, label in zip(dataset.transactions, dataset.tx_labels):
         assert label.true_category_id == t.category_id
         assert not label.is_trap and label.canary is None
+        assert label.scenario_id is None or label.scenario_id in scenario_ids
     for label in dataset.user_labels:
         assert label.split == config.split_of(label.user_id)
 
@@ -143,6 +153,8 @@ def test_no_user_saves_an_absurd_share_of_their_income(dataset):
         if t.amount_eur > 0:
             income[t.user_id] += t.amount_eur
     for user_id in income:
+        if user_id in users_with_short_history(dataset):
+            continue  # a window of a few weeks lacks the extra pays, so the rate is not comparable
         rate = net[user_id] / income[user_id]
         assert Decimal("-0.15") < rate < Decimal("0.60"), (user_id, rate)
 

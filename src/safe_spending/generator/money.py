@@ -3,6 +3,7 @@
 from decimal import Decimal
 
 CENTS_PER_EUR = 100
+BASE_CURRENCY = "EUR"  # the only currency until FX arrives (slice 3); matches the CHECK in migration 0001
 
 
 def to_cents(euros: Decimal) -> int:

@@ -13,6 +13,7 @@ from safe_spending.generator.config.loaders import (
     load_config,
 )
 from safe_spending.generator.config.merchant import Merchant
+from safe_spending.generator.config.scenario_assignment import ScenarioAssignment
 
 __all__ = [
     "CATALOG_FILES",
@@ -23,6 +24,7 @@ __all__ = [
     "Category",
     "GeneratorConfig",
     "Merchant",
+    "ScenarioAssignment",
     "configuration_hash",
     "load_catalog",
     "load_config",

@@ -22,3 +22,4 @@ class Event(BaseModel):
     merchant: Merchant | None = None
     counterparty: str | None = None
     note: str | None = None
+    scenario_id: str | None = None  # set on events a scenario added or changed
