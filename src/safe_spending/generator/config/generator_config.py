@@ -4,8 +4,11 @@ from pydantic import BaseModel, ConfigDict, model_validator
 
 from safe_spending.generator.config.archetype import Archetype
 from safe_spending.generator.config.scenario_assignment import ScenarioAssignment
+from safe_spending.generator.config.trap_settings import TrapSettings
+from safe_spending.generator.enums import TxCode
 
 FUNCTIONAL_SPLIT = "eval_functional"
+ADVERSARIAL_SPLIT = "eval_adversarial"
 
 
 class GeneratorConfig(BaseModel):
@@ -18,12 +21,15 @@ class GeneratorConfig(BaseModel):
     n_users: int
     splits: dict[str, tuple[int, int]]
     statement_max_length: int
+    # Movements that carry a free-text concept from a third party need longer statement lines.
+    statement_max_length_by_code: dict[TxCode, int] = {}
     cities: dict[str, float]
     weekday_weights: list[float]
     card_delay_weights: list[float]
     seasonality: dict[str, list[float]]
     archetypes: dict[str, Archetype]
     scenarios: tuple[ScenarioAssignment, ...] = ()
+    traps: TrapSettings
 
     @model_validator(mode="after")
     def _scenarios_belong_to_functional_users(self) -> "GeneratorConfig":
@@ -52,3 +58,9 @@ class GeneratorConfig(BaseModel):
             user_id: int
     ) -> list[ScenarioAssignment]:
         return [a for a in self.scenarios if a.user_id == user_id]
+
+    def statement_limit(
+            self,
+            tx_code: TxCode
+    ) -> int:
+        return self.statement_max_length_by_code.get(tx_code, self.statement_max_length)

@@ -10,10 +10,12 @@ from safe_spending.generator.config.catalog import Catalog
 from safe_spending.generator.config.category import Category
 from safe_spending.generator.config.generator_config import GeneratorConfig
 from safe_spending.generator.config.merchant import Merchant
+from safe_spending.generator.config.trap_templates import TrapTemplates
 
 RESOURCES = Path(__file__).parents[1] / "resources"
 CONFIG_FILE = RESOURCES / "config.yaml"
-CATALOG_FILES = ("categories.yaml", "merchants.yaml")
+# Everything besides config.yaml that shapes the generated data, so it all goes into the hash.
+CATALOG_FILES = ("categories.yaml", "merchants.yaml", "traps.yaml")
 
 
 def load_config(path: Path = CONFIG_FILE) -> GeneratorConfig:
@@ -44,7 +46,14 @@ def load_catalog(resources: Path = RESOURCES) -> Catalog:
         )
     if len({m.name for m in merchants}) != len(merchants):
         raise ValueError("duplicate merchant names in merchants.yaml")
-    return Catalog(categories=tuple(categories), merchants=tuple(merchants))
+    trap_templates = TrapTemplates(
+        templates=yaml.safe_load((resources / "traps.yaml").read_text(encoding="utf-8"))
+    )
+    return Catalog(
+        categories=tuple(categories),
+        merchants=tuple(merchants),
+        trap_templates=trap_templates
+    )
 
 
 def configuration_hash(config_path: Path = CONFIG_FILE, resources: Path = RESOURCES) -> str:

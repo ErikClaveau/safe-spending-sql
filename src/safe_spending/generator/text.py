@@ -61,6 +61,20 @@ def salary(
     return f"NOMINA {employer}" + (" PAGA EXTRA" if extra else "")
 
 
+def bizum_in(
+        sender: str,
+        concept: str
+) -> str:
+    return f"BIZUM DE {sender} CONCEPTO {concept}"
+
+
+def transfer_in(
+        sender: str,
+        concept: str
+) -> str:
+    return f"TRANSFERENCIA RECIBIDA DE {sender} CONCEPTO {concept}"
+
+
 def rent_transfer(
         landlord: str,
         month: int,

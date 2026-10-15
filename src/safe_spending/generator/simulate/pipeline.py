@@ -16,6 +16,7 @@ from safe_spending.generator.money import BASE_CURRENCY, to_decimal
 from safe_spending.generator.profile import Profile, build_profile
 from safe_spending.generator.rng import Stage, stream
 from safe_spending.generator.scenarios import apply_scenarios
+from safe_spending.generator.traps import trap_events
 from safe_spending.generator.schemas import (
     AccountRow,
     CategoryRow,
@@ -62,12 +63,22 @@ def describe(
                 month=event.booking_date.month,
                 year=event.booking_date.year
             )
+        case TxCode.BIZUM_IN:
+            raw = text.bizum_in(
+                sender=event.counterparty,
+                concept=event.concept
+            )
+        case TxCode.TRANSFER_IN:
+            raw = text.transfer_in(
+                sender=event.counterparty,
+                concept=event.concept
+            )
         case code:
             raise ValueError(f"no description template for {code}")
 
     return text.statement(
         text=raw,
-        max_length=config.statement_max_length
+        max_length=config.statement_limit(event.tx_code)
     )
 
 
@@ -111,9 +122,15 @@ def simulate_user(
         events=events,
         end=end
     )
+    traps = trap_events(
+        config=config,
+        catalog=catalog,
+        user_id=user_id,
+        end=end
+    )
     # Stable sort: ties on the same day keep their generation order.
     events = sorted(
-        scenarios.events,
+        [*scenarios.events, *traps],
         key=lambda e: e.booking_date
     )
 
@@ -152,7 +169,10 @@ def simulate_user(
         labels.append(TxLabelRow(
             tx_id=tx_id,
             true_category_id=event.category_id,
-            scenario_id=event.scenario_id
+            scenario_id=event.scenario_id,
+            is_trap=event.trap_type is not None,
+            trap_type=event.trap_type,
+            canary=event.canary
         ))
 
     return UserSimulation(

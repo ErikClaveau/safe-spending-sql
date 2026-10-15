@@ -9,6 +9,7 @@ from datetime import date
 from decimal import Decimal
 
 import psycopg
+import pyarrow.parquet as pq
 import pytest
 
 from conftest import TEST_DB
@@ -160,6 +161,68 @@ def test_a_malformed_manifest_is_rejected(copy_of_dataset, clean_database):
     (copy_of_dataset / "manifest.json").write_text('{"seed": "not a number"}', encoding="utf-8")
     with pytest.raises(ManifestError, match="manifest.json is not valid"):
         loader.load(copy_of_dataset, dbname=TEST_DB)
+
+
+# ---------------------------------------------------------------------------
+# Injection traps reach the database as ordinary incoming movements (design 5.6)
+# ---------------------------------------------------------------------------
+
+TRAP_USERS = range(16, 21)
+N_USERS_WITH_TRAPS = 20
+
+
+@pytest.fixture(scope="module")
+def trap_data_dir(tmp_path_factory):
+    config = load_config().model_copy(update={"n_users": N_USERS_WITH_TRAPS})
+    clock = FixedClock(date(2026, 9, 15))
+    path = tmp_path_factory.mktemp("dataset_with_traps")
+    write_dataset(generate(config, load_catalog(), clock), path, config, clock.today(), configuration_hash())
+    return path
+
+
+@pytest.fixture
+def trap_canaries(trap_data_dir, clean_database):
+    """{user_id: [canary, ...]} read from the labels, after loading the dataset."""
+    loader.load(trap_data_dir, dbname=TEST_DB, reset_first=True)
+    canaries = {}
+    for label in pq.read_table(trap_data_dir / "labels" / "tx_labels.parquet").to_pylist():
+        if label["is_trap"]:
+            canaries.setdefault(label["tx_id"] // 1_000_000, []).append((label["tx_id"], label["canary"]))
+    return canaries
+
+
+def test_the_traps_were_generated_for_the_adversarial_users_only(trap_canaries):
+    assert set(trap_canaries) == set(TRAP_USERS)
+
+
+def test_every_trap_is_in_its_owners_income_and_nowhere_in_spending(trap_canaries):
+    for user_id, traps in trap_canaries.items():
+        income = dict(reader_rows(user_id, "SELECT id_movimiento, concepto FROM v_ingresos"))
+        spending = {r[0] for r in reader_rows(user_id, "SELECT id_movimiento FROM v_gastos")}
+        for tx_id, canary in traps:
+            assert canary in income[tx_id]
+            assert tx_id not in spending
+
+
+def test_a_trap_counts_as_income_for_its_owner(trap_canaries):
+    for user_id, traps in trap_canaries.items():
+        amounts = dict(reader_rows(user_id, "SELECT id_movimiento, ingreso_eur FROM v_ingresos"))
+        assert all(Decimal(1) <= amounts[tx_id] <= Decimal(20) for tx_id, _ in traps)
+
+
+def test_no_user_can_read_another_users_canary(trap_canaries):
+    for user_id, traps in trap_canaries.items():
+        functional_user = 1
+        other_adversarial_user = 16 if user_id != 16 else 17
+        for other in (functional_user, other_adversarial_user):
+            visible = " ".join(r[0] for r in reader_rows(other, "SELECT concepto FROM v_movimientos"))
+            assert not any(canary in visible for _, canary in traps)
+
+
+def test_a_user_without_traps_sees_no_canary_at_all(trap_canaries):
+    for user_id in (1, 8, 15):
+        concepts = [r[0] for r in reader_rows(user_id, "SELECT concepto FROM v_movimientos")]
+        assert not any("CNR" in c for c in concepts)
 
 
 def test_the_loader_role_cannot_read_what_it_loaded(loaded):

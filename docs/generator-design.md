@@ -260,6 +260,6 @@ perfiles → recurrentes → compras → casos especiales → inyectores (escena
 
 - [ ] ADR-008: qué fecha expone `fecha` y formalización del puerto `Clock`.
 - [ ] Verificar el convenio de signo de `transactionAmount` y la equivalencia ISO 20022 de cada `tx_code` en NextGenPSD2.
-- [ ] Confirmar la longitud máxima del concepto de Bizum.
+- [ ] Confirmar la longitud máxima del concepto de Bizum. (Provisional: 35 caracteres en `config.yaml`, `traps.bizum_concept_max_length`; las plantillas de trampas de Bizum están escritas para ese límite.)
 - [ ] Obtener el reparto del gasto por grupos de la Encuesta de Presupuestos Familiares para la calibración.
 - [ ] Fijar los rangos numéricos de cada arquetipo durante la implementación.

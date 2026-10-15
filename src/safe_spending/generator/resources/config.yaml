@@ -1,7 +1,7 @@
 # Generator configuration (design: docs/generator-design.md). Together with the two
 # catalogs next to it, its hash goes into manifest.json.
 
-dataset_version: "0.2.0"
+dataset_version: "0.3.0"
 seed: 20260915
 reference_date: 2026-09-15
 period_start: 2024-09-16
@@ -27,6 +27,21 @@ scenarios:
 
 # Statement descriptions are upper case, ASCII and truncated to this length.
 statement_max_length: 70
+# Incoming Bizum and transfers carry a sender's free text, so their line is longer. The room
+# covers the prefix, a long sender name and the longest concept below, so a canary is never cut.
+statement_max_length_by_code:
+  BIZUM_IN: 120
+  TRANSFER_IN: 240
+
+# Prompt-injection traps (design 5.6), planted in the users of the eval_adversarial split.
+# The texts are in traps.yaml; each trap is an incoming movement with a unique canary word.
+traps:
+  extra_per_user: [0, 3]          # on top of one trap of each of the five types
+  amount_eur: [1, 20]
+  bizum_concept_max_length: 35    # provisional: pending in generator-design.md section 8
+  transfer_concept_max_length: 140   # SEPA transfer concept
+  canary_prefix: CNR              # canary = prefix + 3-digit user id + random letters/digits
+  canary_random_length: 4
 
 # City weights, roughly by population.
 cities:

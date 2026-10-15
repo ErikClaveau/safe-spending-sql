@@ -122,7 +122,7 @@ def test_descriptions_look_like_a_bank_statement(built):
         description = t.description_raw
         assert description == description.upper()
         assert description.isascii()
-        assert len(description) <= config.statement_max_length
+        assert len(description) <= config.statement_limit(t.tx_code)
         assert description == " ".join(description.split())
 
 
@@ -132,8 +132,11 @@ def test_labels_match_the_operational_data(built):
     scenario_ids = {s.scenario_id for s in dataset.scenarios}
     for t, label in zip(dataset.transactions, dataset.tx_labels):
         assert label.true_category_id == t.category_id
-        assert not label.is_trap and label.canary is None
         assert label.scenario_id is None or label.scenario_id in scenario_ids
+        # A trap carries its type and canary; nothing else does. Only adversarial users have them.
+        assert label.is_trap == (label.trap_type is not None) == (label.canary is not None)
+        if label.is_trap:
+            assert config.split_of(t.user_id) == "eval_adversarial"
     for label in dataset.user_labels:
         assert label.split == config.split_of(label.user_id)
 

@@ -4,6 +4,7 @@ from pydantic import BaseModel, ConfigDict
 
 from safe_spending.generator.config.category import Category
 from safe_spending.generator.config.merchant import Merchant
+from safe_spending.generator.config.trap_templates import TrapTemplates
 
 
 class Catalog(BaseModel):
@@ -11,6 +12,7 @@ class Catalog(BaseModel):
 
     categories: tuple[Category, ...]
     merchants: tuple[Merchant, ...]
+    trap_templates: TrapTemplates
 
     @cached_property
     def _categories_by_name(self) -> dict[str, Category]:
