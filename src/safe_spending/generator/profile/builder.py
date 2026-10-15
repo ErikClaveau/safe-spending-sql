@@ -14,7 +14,8 @@ from safe_spending.generator.money import CENTS_PER_EUR, to_cents
 from safe_spending.generator.profile.profile import Profile
 from safe_spending.generator.profile.subscription import Subscription
 from safe_spending.generator.profile.utility import Utility
-from safe_spending.generator.rng import Stage, stream
+from safe_spending.generator.enums import Stage
+from safe_spending.generator.rng import stream
 
 # Share of a category's purchases going to the user's 1st, 2nd and 3rd habitual merchant.
 HABITUAL_SHARES = (0.6, 0.3, 0.1)

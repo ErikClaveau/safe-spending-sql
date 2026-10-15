@@ -8,7 +8,8 @@ from safe_spending.generator.enums import ScenarioType
 from safe_spending.generator.events import Event, drop_orphan_refunds
 from safe_spending.generator.fx import FxSeries
 from safe_spending.generator.profile import Profile
-from safe_spending.generator.rng import Stage, stream
+from safe_spending.generator.enums import Stage
+from safe_spending.generator.rng import stream
 from safe_spending.generator.scenarios import (
     amazon_refunds,
     anomalous_month,

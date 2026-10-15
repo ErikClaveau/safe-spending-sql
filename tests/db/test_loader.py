@@ -87,13 +87,25 @@ def test_each_user_sees_only_their_own_movements(loaded):
         assert ids and {i // 1_000_000 for i in ids} == {user_id}
 
 
+def internal_ids(user_id):
+    """The movements that are one leg of a transfer between the user's own accounts."""
+    with admin() as conn:
+        return {r[0] for r in conn.execute(
+            "SELECT tx_id FROM app.transactions WHERE user_id = %s AND counterparty_account_id IS NOT NULL", (user_id,))}
+
+
 def test_generated_data_satisfies_the_single_view_invariant(loaded):
+    saw_internal = False
     for user_id in range(1, N_USERS + 1):
         everything = {r[0] for r in reader_rows(user_id, "SELECT id_movimiento FROM v_movimientos")}
         gastos = {r[0] for r in reader_rows(user_id, "SELECT id_movimiento FROM v_gastos")}
         ingresos = {r[0] for r in reader_rows(user_id, "SELECT id_movimiento FROM v_ingresos")}
+        internal = internal_ids(user_id)
+        saw_internal |= bool(internal)
         assert gastos & ingresos == set()
-        assert gastos | ingresos == everything  # slice 1 has no internal transfers yet
+        # Every movement is in exactly one of the two views, except the transfers between own accounts.
+        assert everything - gastos - ingresos == internal
+    assert saw_internal  # the invariant was exercised with real internal transfers
 
 
 def test_income_minus_spending_equals_the_balance_change_on_generated_data(loaded):
@@ -227,6 +239,60 @@ def test_a_user_without_traps_sees_no_canary_at_all(trap_canaries):
 
 
 # ---------------------------------------------------------------------------
+# Transfers between the user's own accounts through the semantic views
+# ---------------------------------------------------------------------------
+
+SAVER = 4  # one of the users of the 4-user dataset that has a savings account
+
+
+def test_a_savings_user_has_two_accounts_and_sees_both_masked(loaded):
+    accounts = {r[0] for r in reader_rows(SAVER, "SELECT DISTINCT cuenta FROM v_movimientos")}
+    assert len(accounts) == 2 and all(a.startswith("ES") and a[-4:].isdigit() for a in accounts)
+    with admin() as conn:
+        assert conn.execute("SELECT count(*) FROM app.accounts WHERE user_id = %s", (SAVER,)).fetchone()[0] == 2
+
+
+def test_transfers_between_own_accounts_are_only_in_the_movements_view(loaded):
+    internal = internal_ids(SAVER)
+    assert internal
+    ids = lambda view: {r[0] for r in reader_rows(SAVER, f"SELECT id_movimiento FROM {view}")}
+    assert internal <= ids("v_movimientos")
+    assert not internal & ids("v_gastos") and not internal & ids("v_ingresos")
+
+
+def test_the_two_legs_of_a_transfer_cancel_out_in_the_movements_view(loaded):
+    rows = reader_rows(SAVER, "SELECT fecha, ABS(importe_eur), SUM(importe_eur), count(*) FROM v_movimientos "
+                              "WHERE concepto LIKE 'TRASPASO %' GROUP BY fecha, ABS(importe_eur)")
+    assert rows and all(total == 0 and legs == 2 for _, _, total, legs in rows)
+
+
+def test_transfers_never_count_as_income_or_spending(loaded):
+    moved, = reader_rows(SAVER, "SELECT SUM(ABS(importe_eur)) FROM v_movimientos WHERE concepto LIKE 'TRASPASO %'")[0]
+    assert moved > 0
+    for view in ("v_gastos", "v_ingresos"):
+        assert reader_rows(SAVER, f"SELECT count(*) FROM {view} WHERE concepto LIKE 'TRASPASO %'")[0][0] == 0
+
+
+def test_the_savings_account_holds_what_was_moved_in_and_the_current_account_the_rest(loaded):
+    with admin() as conn:
+        savings_cuenta, = conn.execute(
+            "SELECT left(iban, 2) || repeat('*', length(iban) - 6) || right(iban, 4) FROM app.accounts WHERE account_id = %s",
+            (SAVER * 10 + 2,)).fetchone()
+    balances = dict(reader_rows(SAVER, "SELECT cuenta, SUM(importe_eur) FROM v_movimientos GROUP BY cuenta"))
+    assert set(balances) >= {savings_cuenta} and len(balances) == 2
+    assert balances[savings_cuenta] > 0  # it only holds what was moved in, minus what came back
+    total, = reader_rows(SAVER, "SELECT SUM(importe_eur) FROM v_movimientos")[0]
+    assert sum(balances.values()) == total
+
+def test_the_database_accepts_the_composite_keys_of_the_internal_transfers(loaded):
+    with admin() as conn:
+        # Every counterparty account belongs to the same user (the composite foreign key says so).
+        assert conn.execute(
+            "SELECT count(*) FROM app.transactions t JOIN app.accounts a ON a.account_id = t.counterparty_account_id "
+            "WHERE a.user_id <> t.user_id").fetchone()[0] == 0
+        assert conn.execute("SELECT count(*) FROM app.transactions WHERE counterparty_account_id IS NOT NULL").fetchone()[0] > 0
+
+# ---------------------------------------------------------------------------
 # Foreign currency, exchange fees and refunds through the semantic views
 # ---------------------------------------------------------------------------
 
@@ -306,7 +372,7 @@ def test_the_single_view_invariant_holds_with_fees_refunds_and_foreign_payments(
         everything = {r[0] for r in reader_rows(user_id, "SELECT id_movimiento FROM v_movimientos")}
         gastos = {r[0] for r in reader_rows(user_id, "SELECT id_movimiento FROM v_gastos")}
         ingresos = {r[0] for r in reader_rows(user_id, "SELECT id_movimiento FROM v_ingresos")}
-        assert gastos & ingresos == set() and gastos | ingresos == everything
+        assert gastos & ingresos == set() and everything - gastos - ingresos == internal_ids(user_id)
         balance, = reader_rows(user_id, "SELECT SUM(importe_eur) FROM v_movimientos")[0]
         income, = reader_rows(user_id, "SELECT SUM(ingreso_eur) FROM v_ingresos")[0]
         spending, = reader_rows(user_id, "SELECT SUM(gasto_eur) FROM v_gastos")[0]

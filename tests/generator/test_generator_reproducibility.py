@@ -29,8 +29,8 @@ def test_a_different_seed_gives_different_data():
 def test_adding_users_does_not_change_existing_ones(extra_users):
     _, _, small = build(4)
     _, _, large = build(4 + extra_users)
-    for table in ("users", "accounts", "user_labels"):
-        assert getattr(large, table)[:4] == getattr(small, table)
+    for table in ("users", "accounts", "user_labels"):  # a user may have one or two accounts
+        assert [r for r in getattr(large, table) if r.user_id <= 4] == getattr(small, table)
     kept = [t for t in large.transactions if t.user_id <= 4]
     assert kept == small.transactions
     assert [l for l in large.tx_labels if l.tx_id // 1_000_000 <= 4] == small.tx_labels

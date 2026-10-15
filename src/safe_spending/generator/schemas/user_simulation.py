@@ -14,7 +14,7 @@ class UserSimulation(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     user: UserRow
-    account: AccountRow
+    accounts: list[AccountRow]
     transactions: list[TransactionRow]
     tx_labels: list[TxLabelRow]
     user_label: UserLabelRow

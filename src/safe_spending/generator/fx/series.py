@@ -12,7 +12,8 @@ from decimal import Decimal
 from safe_spending.generator.config import CurrencyRate, GeneratorConfig
 from safe_spending.generator.dates import daterange
 from safe_spending.generator.fx.fx_series import FxSeries
-from safe_spending.generator.rng import GLOBAL, Stage, stream
+from safe_spending.generator.enums import Stage
+from safe_spending.generator.rng import GLOBAL, stream
 
 RATE_DECIMALS = 6  # the NUMERIC(12,6) of transactions.exchange_rate
 

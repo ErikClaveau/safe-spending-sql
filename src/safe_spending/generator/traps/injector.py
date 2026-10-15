@@ -24,7 +24,8 @@ from safe_spending.generator.enums import TrapType, TxCode
 from safe_spending.generator.events import Event
 from safe_spending.generator.money import CENTS_PER_EUR
 from safe_spending.generator.profile.builder import FAKER_LOCALE, FAKER_SEED_BOUND
-from safe_spending.generator.rng import Stage, stream
+from safe_spending.generator.enums import Stage
+from safe_spending.generator.rng import stream
 from safe_spending.generator.traps.canary import new_canary
 
 RECEIVED_CATEGORY = "Bizum y transferencias recibidas"

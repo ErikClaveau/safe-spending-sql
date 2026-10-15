@@ -317,7 +317,7 @@ def test_traps_are_a_small_share_of_each_users_movements(dataset, traps):
 
 def test_traps_barely_move_the_savings_rate_of_a_user(dataset, without_traps):
     def savings_rate(ds, user_id):
-        amounts = [t.amount_eur for t in ds.transactions if t.user_id == user_id]
+        amounts = [t.amount_eur for t in ds.transactions if t.user_id == user_id and t.counterparty_account_id is None]
         return sum(amounts) / sum(a for a in amounts if a > 0)
 
     for user_id in ADVERSARIAL_USERS:

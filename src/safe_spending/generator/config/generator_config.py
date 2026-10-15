@@ -5,6 +5,7 @@ from pydantic import BaseModel, ConfigDict, model_validator
 from safe_spending.generator.config.archetype import Archetype
 from safe_spending.generator.config.fx_settings import FxSettings
 from safe_spending.generator.config.refund_settings import RefundSettings
+from safe_spending.generator.config.savings_settings import SavingsSettings
 from safe_spending.generator.config.scenario_assignment import ScenarioAssignment
 from safe_spending.generator.config.trap_settings import TrapSettings
 from safe_spending.generator.enums import TxCode
@@ -34,6 +35,7 @@ class GeneratorConfig(BaseModel):
     traps: TrapSettings
     fx: FxSettings
     refunds: RefundSettings
+    savings: SavingsSettings
 
     @model_validator(mode="after")
     def _scenarios_belong_to_functional_users(self) -> "GeneratorConfig":

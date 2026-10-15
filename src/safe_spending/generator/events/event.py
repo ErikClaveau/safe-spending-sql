@@ -3,7 +3,7 @@ from datetime import date
 from pydantic import BaseModel, ConfigDict
 
 from safe_spending.generator.config import Merchant
-from safe_spending.generator.enums import TrapType, TxCode
+from safe_spending.generator.enums import AccountKind, TrapType, TxCode
 from safe_spending.generator.events.foreign_amount import ForeignAmount
 
 
@@ -25,6 +25,8 @@ class Event(BaseModel):
     counterparty: str | None = None
     note: str | None = None
     concept: str | None = None  # free text written by the sender of an incoming Bizum or transfer
+    account: AccountKind = AccountKind.CURRENT  # which of the user's accounts the movement is on
+    internal: bool = False  # one of the two legs of a transfer between the user's own accounts
     foreign: ForeignAmount | None = None  # set on payments in a currency other than the euro
     key: str | None = None  # names a purchase so that a refund can point to it
     refund_of_key: str | None = None  # on a refund: the key of the purchase it returns

@@ -11,12 +11,14 @@ import numpy as np
 from safe_spending.clock import Clock
 from safe_spending.generator import text
 from safe_spending.generator.config import Catalog, GeneratorConfig
-from safe_spending.generator.enums import TxCode
+from safe_spending.generator.enums import AccountKind, TxCode
 from safe_spending.generator.events import Event, purchase_events, recurring_events, refund_events
 from safe_spending.generator.fx import FxSeries, build_fx_series
 from safe_spending.generator.money import BASE_CURRENCY, to_decimal
 from safe_spending.generator.profile import Profile, build_profile
-from safe_spending.generator.rng import Stage, stream
+from safe_spending.generator.enums import Stage
+from safe_spending.generator.rng import stream
+from safe_spending.generator.savings import SavingsPlan, build_savings
 from safe_spending.generator.scenarios import apply_scenarios
 from safe_spending.generator.schemas import (
     AccountRow,
@@ -61,6 +63,11 @@ def describe(
             raw = text.salary(
                 employer=event.counterparty,
                 extra=event.note == "extra"
+            )
+        case TxCode.TRANSFER_OUT | TxCode.TRANSFER_IN if event.internal:
+            raw = text.internal_transfer(
+                outgoing=event.tx_code == TxCode.TRANSFER_OUT,
+                other_account="CORRIENTE" if event.account == AccountKind.SAVINGS else "AHORRO"
             )
         case TxCode.TRANSFER_OUT:
             raw = text.rent_transfer(
@@ -140,6 +147,15 @@ def simulate_user(
         events=events,
         end=end
     )
+    # After the scenarios: the deposits follow the pays the user really has (a recent sign-up has
+    # none before its date), so the savings balance can never be built on history that is gone.
+    savings = build_savings(
+        config=config,
+        catalog=catalog,
+        profile=profile,
+        events=list(scenarios.events),
+        end=end
+    )
     traps = trap_events(
         config=config,
         catalog=catalog,
@@ -148,7 +164,7 @@ def simulate_user(
     )
     # Stable sort: ties on the same day keep their generation order.
     events = sorted(
-        [*scenarios.events, *traps],
+        [*scenarios.events, *savings.events, *traps],
         key=lambda e: e.booking_date
     )
 
@@ -157,7 +173,10 @@ def simulate_user(
         user_id=user_id,
         stage=Stage.TEXT
     )
-    account_id = user_id * ACCOUNTS_PER_USER_STRIDE + 1
+    account_ids = {
+        AccountKind.CURRENT: user_id * ACCOUNTS_PER_USER_STRIDE + 1,
+        AccountKind.SAVINGS: user_id * ACCOUNTS_PER_USER_STRIDE + 2,
+    }
     tx_ids = [user_id * TX_ID_STRIDE + sequence for sequence in range(1, len(events) + 1)]
     tx_id_by_key = {e.key: tx_id for e, tx_id in zip(events, tx_ids) if e.key is not None}
     transactions, labels = [], []
@@ -165,7 +184,7 @@ def simulate_user(
         amount, currency, exchange_rate = _original_amount(event)
         transactions.append(TransactionRow(
             tx_id=tx_id,
-            account_id=account_id,
+            account_id=account_ids[event.account],
             user_id=user_id,
             booking_date=event.booking_date,
             value_date=event.value_date,
@@ -183,7 +202,7 @@ def simulate_user(
             tx_code=event.tx_code,
             merchant_id=event.merchant.merchant_id if event.merchant else None,
             category_id=event.category_id,
-            counterparty_account_id=None,
+            counterparty_account_id=_other_own_account_id(event, account_ids),
         ))
         labels.append(TxLabelRow(
             tx_id=tx_id,
@@ -202,12 +221,7 @@ def simulate_user(
             city=profile.city,
             signup_date=scenarios.signup_date or config.period_start,
         ),
-        account=AccountRow(
-            account_id=account_id,
-            user_id=user_id,
-            iban=profile.iban,
-            currency=BASE_CURRENCY
-        ),
+        accounts=_accounts(user_id, profile, savings.plan, account_ids),
         transactions=transactions,
         tx_labels=labels,
         user_label=UserLabelRow(
@@ -258,7 +272,7 @@ def generate(
             end=end
         )
         dataset.users.append(user.user)
-        dataset.accounts.append(user.account)
+        dataset.accounts.extend(user.accounts)
         dataset.transactions.extend(user.transactions)
         dataset.tx_labels.extend(user.tx_labels)
         dataset.user_labels.append(user.user_label)
@@ -295,3 +309,38 @@ def _original_amount(event: Event):
         return to_decimal(cents=event.amount_cents), BASE_CURRENCY, None
 
     return to_decimal(cents=event.foreign.amount_cents), event.foreign.currency, event.foreign.rate
+
+def _other_own_account_id(
+        event: Event,
+        account_ids: dict[AccountKind, int]
+) -> int | None:
+    """For a transfer between the user's own accounts: the account on the other side."""
+    if not event.internal:
+        return None
+
+    other = AccountKind.SAVINGS if event.account == AccountKind.CURRENT else AccountKind.CURRENT
+
+    return account_ids[other]
+
+
+def _accounts(
+        user_id: int,
+        profile: Profile,
+        plan: SavingsPlan | None,
+        account_ids: dict[AccountKind, int]
+) -> list[AccountRow]:
+    accounts = [AccountRow(
+        account_id=account_ids[AccountKind.CURRENT],
+        user_id=user_id,
+        iban=profile.iban,
+        currency=BASE_CURRENCY
+    )]
+    if plan is not None:
+        accounts.append(AccountRow(
+            account_id=account_ids[AccountKind.SAVINGS],
+            user_id=user_id,
+            iban=plan.iban,
+            currency=BASE_CURRENCY
+        ))
+
+    return accounts

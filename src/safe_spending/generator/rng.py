@@ -6,22 +6,9 @@ user's data or any other stage of the same user. User id 0 is the global stream 
 shared elements.
 """
 
-from enum import StrEnum
-
 import numpy as np
 
-
-class Stage(StrEnum):
-    # Order matters: the index is part of the stream key. Append new stages, never reorder.
-    PROFILE = "profile"
-    RECURRING = "recurring"
-    PURCHASES = "purchases"
-    SPECIAL = "special"
-    SCENARIOS = "scenarios"
-    TRAPS = "traps"
-    TEXT = "text"
-    FX = "fx"  # the shared exchange-rate series, drawn from the GLOBAL stream
-
+from safe_spending.generator.enums import Stage
 
 STAGES = tuple(Stage)
 GLOBAL = 0

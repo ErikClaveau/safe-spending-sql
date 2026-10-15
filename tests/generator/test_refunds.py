@@ -9,7 +9,8 @@ import pytest
 from gen_helpers import REFERENCE, build
 from safe_spending.generator.enums import Channel, TxCode
 from safe_spending.generator.events import Event, drop_orphan_refunds, refund_events
-from safe_spending.generator.rng import Stage, stream
+from safe_spending.generator.enums import Stage
+from safe_spending.generator.rng import stream
 
 N_USERS = 25
 

@@ -296,8 +296,12 @@ def test_a_recent_user_has_no_movement_before_the_signup_date(dataset):
 
 def test_a_recent_user_keeps_the_movements_after_the_signup_date(dataset, baseline):
     params = params_of(dataset, 3, RecentSignupParams)
-    expected = fingerprints(t for t in transactions_of(baseline, 3) if t.booking_date >= params.signup_date)
-    assert fingerprints(transactions_of(dataset, 3)) == expected
+    # Transfers between the user's own accounts are left out: they are rebuilt on the history the
+    # user really has, so they differ from the baseline (see the savings tests).
+    expected = fingerprints(
+        t for t in transactions_of(baseline, 3) if t.booking_date >= params.signup_date and t.counterparty_account_id is None
+    )
+    assert fingerprints(t for t in transactions_of(dataset, 3) if t.counterparty_account_id is None) == expected
     assert 2 <= sum(1 for t in transactions_of(dataset, 3) if t.tx_code == TxCode.SALARY) <= 4
 
 
@@ -381,7 +385,7 @@ def test_the_anomalous_month_really_stands_out(dataset, anomaly):
     _, (year, month), _ = anomaly
     spend = defaultdict(Decimal)
     for t in transactions_of(dataset, 5):
-        if t.amount_eur < 0:
+        if t.amount_eur < 0 and t.counterparty_account_id is None:  # moving money between own accounts is not spending
             spend[(t.booking_date.year, t.booking_date.month)] -= t.amount_eur
     complete = [key for key in spend if key not in {(2024, 9), (2026, 9)}]  # first and last are partial
     typical = median(spend[key] for key in complete if key != (year, month))

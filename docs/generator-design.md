@@ -174,6 +174,7 @@ Volumen inicial: 100 usuarios (20 de evaluación y 80 de población).
 - **Implementación de las devoluciones (2026-10-15).** Se sortean cuatro números por cada compra reembolsable, sea cual sea el resultado, para que una devolución no desplace el sorteo de las siguientes. Las suscripciones no se devuelven. Cada devolución enlaza con su compra (`tx_labels.refund_of_tx_id`) y, si un escenario elimina la compra, la devolución se elimina con ella.
 - **Comisiones:** mantenimiento trimestral en algunas cuentas, cambio de divisa y cajeros fuera de red.
 - **Traspasos internos:** traspaso mensual a la cuenta de ahorro tras la nómina, con sus dos movimientos, y alguna vuelta ocasional.
+- **Implementación de los traspasos (2026-10-15).** La cuenta de ahorro (`user_id * 10 + 2`) existe para los usuarios cuya capacidad de ahorro (renta menos alquiler, recibos, suscripciones y presupuesto de gasto) supera un mínimo y que salen en el sorteo; el traspaso mensual es una parte de esa capacidad, redondeada. Cada traspaso son dos movimientos (`TRANSFER_OUT` y `TRANSFER_IN`) el mismo día, por el mismo importe y apuntando cada uno a la cuenta del otro. El saldo de ahorro se sigue mes a mes y una devolución solo sale de un saldo suficiente, así que nunca es negativo. Se calcula después de los escenarios, a partir de las nóminas que el usuario realmente tiene.
 - **Bizum:** frecuencia por arquetipo, con patrones como dividir cenas.
 - **Duplicados legítimos:** movimientos idénticos el mismo día y en el mismo comercio.
 

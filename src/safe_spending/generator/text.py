@@ -101,6 +101,14 @@ def transfer_in(
     return f"TRANSFERENCIA RECIBIDA DE {sender} CONCEPTO {concept}"
 
 
+def internal_transfer(
+        outgoing: bool,
+        other_account: str
+) -> str:
+    """One leg of a transfer between the user's own accounts; `other_account` names the other one."""
+    return f"TRASPASO A CUENTA {other_account}" if outgoing else f"TRASPASO DE CUENTA {other_account}"
+
+
 def rent_transfer(
         landlord: str,
         month: int,

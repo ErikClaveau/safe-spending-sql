@@ -96,8 +96,8 @@ def test_card_purchases_never_carry_a_counterparty_but_receipts_do(dataset):
     for t in dataset.transactions:
         if t.tx_code == "CARD_PURCHASE":
             assert t.counterparty is None
-        if t.tx_code in ("DIRECT_DEBIT", "SALARY", "TRANSFER_OUT"):
-            assert t.counterparty
+        if t.tx_code in ("DIRECT_DEBIT", "SALARY", "TRANSFER_OUT") and t.counterparty_account_id is None:
+            assert t.counterparty  # a transfer between the user's own accounts names no one
 
 
 def test_categories_and_merchants_are_referenced_consistently(dataset):
@@ -116,7 +116,8 @@ def users_with_short_history(dataset):
 def test_every_user_with_full_history_gets_the_expected_recurring_payments(dataset):
     counts = defaultdict(Counter)
     for t in dataset.transactions:
-        counts[t.user_id][t.tx_code] += 1
+        if t.counterparty_account_id is None:  # internal transfers are counted on their own
+            counts[t.user_id][t.tx_code] += 1
     for user_id, c in counts.items():
         if user_id in users_with_short_history(dataset):
             continue
@@ -160,6 +161,8 @@ def test_no_user_saves_an_absurd_share_of_their_income(dataset):
     # Loose sanity check; the calibrated statistical report arrives with slice 4.
     income, net = defaultdict(Decimal), defaultdict(Decimal)
     for t in dataset.transactions:
+        if t.counterparty_account_id is not None:
+            continue  # money moved between the user's own accounts is neither income nor spending
         net[t.user_id] += t.amount_eur
         if t.amount_eur > 0:
             income[t.user_id] += t.amount_eur
