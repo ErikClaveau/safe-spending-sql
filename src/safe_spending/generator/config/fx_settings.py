@@ -1,4 +1,4 @@
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class CurrencyRate(BaseModel):
@@ -6,9 +6,11 @@ class CurrencyRate(BaseModel):
 
     model_config = ConfigDict(frozen=True)
 
-    base: float  # units of this currency per 1 EUR the series reverts to
-    daily_sigma: float  # standard deviation of the daily log change
-    reversion: float  # share of the gap to `base` closed each day (0 = pure random walk)
+    base: float = Field(description="Units of this currency per 1 EUR the series reverts to.")
+    daily_sigma: float = Field(description="Standard deviation of the daily log change.")
+    reversion: float = Field(
+        description="Share of the gap to `base` closed each day (0 = pure random walk)."
+    )
 
 
 class FxSettings(BaseModel):
@@ -16,6 +18,6 @@ class FxSettings(BaseModel):
 
     model_config = ConfigDict(frozen=True)
 
-    currencies: dict[str, CurrencyRate]
-    fee_rate: float  # share of the euro amount charged as a separate FEE movement
-    fee_min_eur: float  # a fee is never below this amount
+    currencies: dict[str, CurrencyRate] = Field(description="Rate behavior of each currency, by ISO code.")
+    fee_rate: float = Field(description="Share of the euro amount charged as a separate FEE movement.")
+    fee_min_eur: float = Field(description="A fee is never below this amount.")

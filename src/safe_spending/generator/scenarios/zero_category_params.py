@@ -1,7 +1,7 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class ZeroCategoryParams(BaseModel):
-    category: str
-    group: str
-    purchases_removed: int  # proof that the zero is not just a lack of data
+    category: str = Field(description="Category left at zero.")
+    group: str = Field(description="Group the category belongs to.")
+    purchases_removed: int = Field(description="Proof that the zero is not just a lack of data.")

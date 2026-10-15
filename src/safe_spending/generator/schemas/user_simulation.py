@@ -1,4 +1,4 @@
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from safe_spending.generator.schemas.account_row import AccountRow
 from safe_spending.generator.schemas.scenario_row import ScenarioRow
@@ -13,9 +13,9 @@ class UserSimulation(BaseModel):
 
     model_config = ConfigDict(frozen=True)
 
-    user: UserRow
-    accounts: list[AccountRow]
-    transactions: list[TransactionRow]
-    tx_labels: list[TxLabelRow]
-    user_label: UserLabelRow
-    scenarios: list[ScenarioRow] = []
+    user: UserRow = Field(description="The user.")
+    accounts: list[AccountRow] = Field(description="The accounts of the user.")
+    transactions: list[TransactionRow] = Field(description="All movements of the user.")
+    tx_labels: list[TxLabelRow] = Field(description="Ground-truth label of each movement.")
+    user_label: UserLabelRow = Field(description="Ground-truth label of the user.")
+    scenarios: list[ScenarioRow] = Field(default=[], description="Scenarios applied to the user.")

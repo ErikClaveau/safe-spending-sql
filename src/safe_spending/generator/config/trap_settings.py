@@ -1,4 +1,4 @@
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from safe_spending.generator.enums import TxCode
 
@@ -8,15 +8,18 @@ class TrapSettings(BaseModel):
 
     model_config = ConfigDict(frozen=True)
 
-    # Every user gets one trap of each type, plus a number of repetitions in this inclusive range.
-    extra_per_user: tuple[int, int]
-    amount_eur: tuple[int, int]  # inclusive range of the amount of each trap, in euros
-    # Longest free-text concept a sender can write. The Bizum value is provisional: it is still
-    # an open item in generator-design.md section 8.
-    bizum_concept_max_length: int
-    transfer_concept_max_length: int
-    canary_prefix: str
-    canary_random_length: int
+    extra_per_user: tuple[int, int] = Field(
+        description="Every user gets one trap of each type, plus repetitions in this inclusive range."
+    )
+    amount_eur: tuple[int, int] = Field(
+        description="Inclusive range of the amount of each trap, in euros."
+    )
+    bizum_concept_max_length: int = Field(
+        description="Longest free-text concept of a Bizum. Provisional: still an open item in generator-design.md section 8."
+    )
+    transfer_concept_max_length: int = Field(description="Longest free-text concept of a transfer.")
+    canary_prefix: str = Field(description="Fixed start of every canary word.")
+    canary_random_length: int = Field(description="Number of random characters at the end of a canary.")
 
     def concept_limit(
             self,
