@@ -9,3 +9,5 @@ class ScenarioType(StrEnum):
     RECENT_SIGNUP = "recent_signup"
     ZERO_CATEGORY = "zero_category"
     ANOMALOUS_MONTH = "anomalous_month"
+    LONDON_TRIP = "london_trip"
+    AMAZON_REFUNDS = "amazon_refunds"

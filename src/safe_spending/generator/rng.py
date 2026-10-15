@@ -20,6 +20,7 @@ class Stage(StrEnum):
     SCENARIOS = "scenarios"
     TRAPS = "traps"
     TEXT = "text"
+    FX = "fx"  # the shared exchange-rate series, drawn from the GLOBAL stream
 
 
 STAGES = tuple(Stage)
@@ -29,9 +30,12 @@ GLOBAL = 0
 def stream(
         seed: int,
         user_id: int,
-        stage: Stage
+        stage: Stage,
+        extra: int | None = None
 ) -> np.random.Generator:
-    key = (user_id, STAGES.index(stage))
+    """The stream of a (user, stage) pair. `extra` splits it further (for example per currency)
+    without changing the key, hence the draws, of any stream that does not use it."""
+    key = (user_id, STAGES.index(stage)) if extra is None else (user_id, STAGES.index(stage), extra)
 
     return np.random.default_rng(
         seed=np.random.SeedSequence(

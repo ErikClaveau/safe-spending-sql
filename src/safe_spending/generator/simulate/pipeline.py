@@ -3,20 +3,21 @@
 The generator never touches the database or the filesystem; export.py writes files and
 a separate loader (safe_spending.db.loader) takes them to Postgres.
 """
-import numpy as np
 
 from datetime import date
+
+import numpy as np
 
 from safe_spending.clock import Clock
 from safe_spending.generator import text
 from safe_spending.generator.config import Catalog, GeneratorConfig
 from safe_spending.generator.enums import TxCode
-from safe_spending.generator.events import Event, purchase_events, recurring_events
+from safe_spending.generator.events import Event, purchase_events, recurring_events, refund_events
+from safe_spending.generator.fx import FxSeries, build_fx_series
 from safe_spending.generator.money import BASE_CURRENCY, to_decimal
 from safe_spending.generator.profile import Profile, build_profile
 from safe_spending.generator.rng import Stage, stream
 from safe_spending.generator.scenarios import apply_scenarios
-from safe_spending.generator.traps import trap_events
 from safe_spending.generator.schemas import (
     AccountRow,
     CategoryRow,
@@ -28,6 +29,7 @@ from safe_spending.generator.schemas import (
     UserSimulation,
 )
 from safe_spending.generator.simulate.dataset import Dataset
+from safe_spending.generator.traps import trap_events
 
 TX_ID_STRIDE = 1_000_000  # tx_id = user_id * stride + sequence: ids are independent per user
 ACCOUNTS_PER_USER_STRIDE = 10
@@ -41,12 +43,15 @@ def describe(
 ) -> str:
     match event.tx_code:
         case TxCode.CARD_PURCHASE:
-            raw = text.card_purchase(
+            raw = _card_purchase_text(event, profile, rng)
+        case TxCode.CARD_REFUND:
+            raw = text.card_refund(
                 merchant=event.merchant,
                 card_prefix=profile.card_prefix,
-                city=profile.city,
                 rng=rng
             )
+        case TxCode.FEE:
+            raw = text.exchange_fee(reference=event.note)
         case TxCode.DIRECT_DEBIT:
             raw = text.direct_debit(
                 merchant=event.merchant,
@@ -85,6 +90,7 @@ def describe(
 def simulate_user(
         config: GeneratorConfig,
         catalog: Catalog,
+        fx: FxSeries,
         user_id: int,
         end: date
 ) -> UserSimulation:
@@ -115,9 +121,21 @@ def simulate_user(
             stage=Stage.PURCHASES
         ),
         end=end)
+    events = refund_events(
+        config=config,
+        catalog=catalog,
+        events=events,
+        rng=stream(
+            seed=config.seed,
+            user_id=user_id,
+            stage=Stage.SPECIAL
+        ),
+        end=end
+    )
     scenarios = apply_scenarios(
         config=config,
         catalog=catalog,
+        fx=fx,
         profile=profile,
         events=events,
         end=end
@@ -140,10 +158,11 @@ def simulate_user(
         stage=Stage.TEXT
     )
     account_id = user_id * ACCOUNTS_PER_USER_STRIDE + 1
+    tx_ids = [user_id * TX_ID_STRIDE + sequence for sequence in range(1, len(events) + 1)]
+    tx_id_by_key = {e.key: tx_id for e, tx_id in zip(events, tx_ids) if e.key is not None}
     transactions, labels = [], []
-    for sequence, event in enumerate(events, start=1):
-        tx_id = user_id * TX_ID_STRIDE + sequence
-        amount = to_decimal(cents=event.amount_cents)
+    for tx_id, event in zip(tx_ids, events):
+        amount, currency, exchange_rate = _original_amount(event)
         transactions.append(TransactionRow(
             tx_id=tx_id,
             account_id=account_id,
@@ -151,9 +170,9 @@ def simulate_user(
             booking_date=event.booking_date,
             value_date=event.value_date,
             amount=amount,
-            currency=BASE_CURRENCY,
-            exchange_rate=None,
-            amount_eur=amount,
+            currency=currency,
+            exchange_rate=exchange_rate,
+            amount_eur=to_decimal(cents=event.amount_cents),
             description_raw=describe(
                 event=event,
                 profile=profile,
@@ -172,7 +191,8 @@ def simulate_user(
             scenario_id=event.scenario_id,
             is_trap=event.trap_type is not None,
             trap_type=event.trap_type,
-            canary=event.canary
+            canary=event.canary,
+            refund_of_tx_id=tx_id_by_key[event.refund_of_key] if event.refund_of_key else None
         ))
 
     return UserSimulation(
@@ -206,6 +226,10 @@ def generate(
         clock: Clock
 ) -> Dataset:
     end = clock.today()
+    fx = build_fx_series(
+        config=config,
+        end=end
+    )
     dataset = Dataset()
     dataset.categories = [
         CategoryRow(
@@ -229,6 +253,7 @@ def generate(
         user = simulate_user(
             config=config,
             catalog=catalog,
+            fx=fx,
             user_id=user_id,
             end=end
         )
@@ -240,3 +265,33 @@ def generate(
         dataset.scenarios.extend(user.scenarios)
 
     return dataset
+
+
+def _card_purchase_text(
+        event: Event,
+        profile: Profile,
+        rng: np.random.Generator
+) -> str:
+    if event.foreign is None:
+        return text.card_purchase(
+            merchant=event.merchant,
+            card_prefix=profile.card_prefix,
+            city=profile.city,
+            rng=rng
+        )
+
+    return text.foreign_card_purchase(
+        merchant=event.merchant,
+        card_prefix=profile.card_prefix,
+        amount=f"{to_decimal(cents=-event.foreign.amount_cents):.2f}",
+        currency=event.foreign.currency,
+        rng=rng
+    )
+
+
+def _original_amount(event: Event):
+    """(amount, currency, exchange_rate) of the original operation; the euro amount is separate."""
+    if event.foreign is None:
+        return to_decimal(cents=event.amount_cents), BASE_CURRENCY, None
+
+    return to_decimal(cents=event.foreign.amount_cents), event.foreign.currency, event.foreign.rate

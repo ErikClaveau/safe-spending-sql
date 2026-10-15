@@ -2,7 +2,7 @@
 
 from collections import Counter, defaultdict
 from datetime import date
-from decimal import Decimal
+from decimal import ROUND_HALF_EVEN, Decimal
 
 import pytest
 
@@ -41,10 +41,18 @@ def test_sign_of_the_amount_matches_the_operation_type(dataset):
 
 
 def test_euro_amounts_are_consistent(dataset):
-    for t in dataset.transactions:
-        assert t.currency == "EUR"
+    euro_rows = [t for t in dataset.transactions if t.currency == "EUR"]
+    foreign_rows = [t for t in dataset.transactions if t.currency != "EUR"]
+    assert euro_rows and foreign_rows  # the London trip is in the dataset
+    for t in euro_rows:
         assert t.exchange_rate is None
         assert t.amount == t.amount_eur
+    for t in foreign_rows:
+        # The rate is units of the currency per 1 EUR, so the euro amount is amount / rate.
+        assert t.exchange_rate is not None and t.exchange_rate > 0
+        assert t.amount_eur == (t.amount / t.exchange_rate).quantize(Decimal("0.01"), rounding=ROUND_HALF_EVEN)
+        assert (t.amount < 0) == (t.amount_eur < 0)
+    for t in dataset.transactions:
         assert t.amount_eur == t.amount_eur.quantize(Decimal("0.01"))  # whole cents
 
 

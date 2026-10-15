@@ -47,6 +47,32 @@ def card_purchase(
     return f"COMPRA TARJ. {card_prefix}XXXX {variant}"
 
 
+def foreign_card_purchase(
+        merchant: Merchant,
+        card_prefix: str,
+        amount: str,
+        currency: str,
+        rng: np.random.Generator
+) -> str:
+    """A purchase in another currency shows the original amount at the end, as statements do."""
+    variant = pick_variant(merchant, rng)
+    return f"COMPRA TARJ. {card_prefix}XXXX {variant} {amount} {currency}"
+
+
+def card_refund(
+        merchant: Merchant,
+        card_prefix: str,
+        rng: np.random.Generator
+) -> str:
+    variant = pick_variant(merchant, rng)
+    return f"DEVOLUCION TARJ. {card_prefix}XXXX {variant}"
+
+
+def exchange_fee(reference: str) -> str:
+    """`reference` names the payment the fee belongs to."""
+    return f"COMISION CAMBIO DIVISA {reference}"
+
+
 def direct_debit(
         merchant: Merchant,
         rng: np.random.Generator

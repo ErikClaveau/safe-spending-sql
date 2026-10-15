@@ -12,7 +12,9 @@ from safe_spending.generator.config.loaders import (
     load_catalog,
     load_config,
 )
+from safe_spending.generator.config.fx_settings import CurrencyRate, FxSettings
 from safe_spending.generator.config.merchant import Merchant
+from safe_spending.generator.config.refund_settings import RefundSettings
 from safe_spending.generator.config.scenario_assignment import ScenarioAssignment
 from safe_spending.generator.config.trap_settings import TrapSettings
 from safe_spending.generator.config.trap_templates import CANARY_PLACEHOLDER, TRAP_CHANNELS, TrapTemplates
@@ -27,8 +29,11 @@ __all__ = [
     "Archetype",
     "Catalog",
     "Category",
+    "CurrencyRate",
+    "FxSettings",
     "GeneratorConfig",
     "Merchant",
+    "RefundSettings",
     "ScenarioAssignment",
     "TrapSettings",
     "TrapTemplates",

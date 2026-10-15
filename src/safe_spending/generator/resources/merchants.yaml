@@ -85,3 +85,16 @@ merchants:
   - {name: ORANGE, mcc: "4814", category: Internet y telefonía, channel: direct_debit, kind: internet, monthly_eur: [38, 60], weight: 3, legal_name: ORANGE ESPAGNE SAU}
   - {name: DIGI, mcc: "4814", category: Internet y telefonía, channel: direct_debit, kind: internet, monthly_eur: [20, 35], weight: 2, legal_name: DIGI SPAIN TELECOM SLU}
   - {name: LYCAMOBILE, mcc: "4814", category: Internet y telefonía, channel: direct_debit, kind: mobile, monthly_eur: [8, 20], weight: 2, legal_name: LYCAMOBILE SLU}
+
+  # London: merchants that charge in pounds. Only the London-trip scenario uses them, and it sets
+  # the amounts in pounds itself, so they carry no median or sigma. They go last so that the ids
+  # of every other merchant stay the same.
+  - {name: PREMIER INN LONDON, mcc: "7011", category: Viajes y alojamiento, channel: card_present, currency: GBP, weight: 4}
+  - {name: HILTON LONDON, mcc: "7011", category: Viajes y alojamiento, channel: card_present, currency: GBP, weight: 2}
+  - {name: TRAVELODGE LONDON, mcc: "7011", category: Viajes y alojamiento, channel: card_present, currency: GBP, weight: 3}
+  - {name: TFL TRAVEL CHARGE, mcc: "4111", category: Transporte público, channel: card_present, currency: GBP, weight: 6}
+  - {name: UBER LONDON, mcc: "4121", category: Taxi y VTC, channel: card_online, currency: GBP, weight: 3, variants: ["UBER *TRIP LONDON"]}
+  - {name: PRET A MANGER LONDON, mcc: "5814", category: Restaurantes y bares, channel: card_present, currency: GBP, weight: 5}
+  - {name: WAGAMAMA LONDON, mcc: "5812", category: Restaurantes y bares, channel: card_present, currency: GBP, weight: 3}
+  - {name: DISHOOM LONDON, mcc: "5812", category: Restaurantes y bares, channel: card_present, currency: GBP, weight: 2}
+  - {name: GREGGS LONDON, mcc: "5814", category: Restaurantes y bares, channel: card_present, currency: GBP, weight: 3}

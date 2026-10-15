@@ -166,10 +166,12 @@ Volumen inicial: 100 usuarios (20 de evaluación y 80 de población).
 - Patrones de importe: supermercados con céntimos; Bizum y transferencias a menudo redondos; cajeros en múltiplos de 10 o 20; suscripciones con precio fijo; luz estacional.
 - Tipos de cambio sintéticos: serie diaria por divisa (GBP, USD, CHF) generada como paseo aleatorio con semilla alrededor de valores realistas.
 - Algunas compras en divisa llevan una comisión de cambio separada (`FEE`).
+- **Implementación (2026-10-15).** `exchange_rate` son unidades de divisa por 1 EUR y se aplica a la fecha de la operación (`value_date`): `amount_eur = amount / exchange_rate`, redondeado half-even. Cada divisa tiene su propio flujo aleatorio, así que su serie no depende de las demás ni de la fecha de fin. La comisión es un movimiento `FEE` aparte (1,75 % del importe en euros, mínimo 0,50 €), sin comercio. De momento solo paga en divisa el escenario de Londres; las compras en divisa de la población base llegan con los arquetipos.
 
 ### 5.4 Casos especiales
 
 - **Devoluciones.** Probabilidad según categoría (alta en ropa y compras online, media en electrónica, casi nula en supermercados). Mayoritariamente totales, algunas parciales. Llegan entre 3 y 30 días después de la compra, con el mismo comercio. Nunca de compras anteriores al periodo ni posteriores a la fecha de referencia. Algunas cruzan de mes.
+- **Implementación de las devoluciones (2026-10-15).** Se sortean cuatro números por cada compra reembolsable, sea cual sea el resultado, para que una devolución no desplace el sorteo de las siguientes. Las suscripciones no se devuelven. Cada devolución enlaza con su compra (`tx_labels.refund_of_tx_id`) y, si un escenario elimina la compra, la devolución se elimina con ella.
 - **Comisiones:** mantenimiento trimestral en algunas cuentas, cambio de divisa y cajeros fuera de red.
 - **Traspasos internos:** traspaso mensual a la cuenta de ahorro tras la nómina, con sus dos movimientos, y alguna vuelta ocasional.
 - **Bizum:** frecuencia por arquetipo, con patrones como dividir cenas.

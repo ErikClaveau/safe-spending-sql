@@ -1,7 +1,7 @@
 # Generator configuration (design: docs/generator-design.md). Together with the two
 # catalogs next to it, its hash goes into manifest.json.
 
-dataset_version: "0.3.0"
+dataset_version: "0.4.0"
 seed: 20260915
 reference_date: 2026-09-15
 period_start: 2024-09-16
@@ -16,14 +16,15 @@ splits:
   population: [21, 100]
 
 # Fixed user -> scenario map (design 5.5, functional users only): the golden set must know
-# which user has what. Users 6 and 7 are reserved for the London trip and the Amazon refunds,
-# and users 8-15 stay without a scenario as plain functional users.
+# which user has what. Users 8-15 stay without a scenario as plain functional users.
 scenarios:
   - {user_id: 1, type: subscription_changes}
   - {user_id: 2, type: job_change}
   - {user_id: 3, type: recent_signup}
   - {user_id: 4, type: zero_category}
   - {user_id: 5, type: anomalous_month}
+  - {user_id: 6, type: london_trip}
+  - {user_id: 7, type: amazon_refunds}
 
 # Statement descriptions are upper case, ASCII and truncated to this length.
 statement_max_length: 70
@@ -90,3 +91,27 @@ archetypes:
       Viajes y alojamiento: 0.04
       Farmacia: 0.01
       Cuidado personal: 0.015
+
+# Card payments in a foreign currency (design 5.3). The daily rate of each currency is a mean-
+# reverting random walk drawn once for everybody from the global stream. A rate is units of the
+# currency per 1 EUR, applied on the day of the operation: amount_eur = amount / rate.
+fx:
+  currencies:
+    GBP: {base: 0.86, daily_sigma: 0.003, reversion: 0.02}
+    USD: {base: 1.08, daily_sigma: 0.004, reversion: 0.02}
+    CHF: {base: 0.95, daily_sigma: 0.003, reversion: 0.02}
+  fee_rate: 0.0175     # a separate FEE movement per foreign-currency card payment
+  fee_min_eur: 0.50
+
+# Refunds of card purchases (design 5.4). Subscriptions are never refunded.
+refunds:
+  default_probability: 0.005
+  probability_by_category:
+    Supermercados: 0.0
+    Ropa y calzado: 0.12
+    Compras online: 0.10
+    Electrónica: 0.05
+    Hogar y bricolaje: 0.03
+  total_share: 0.8                # the rest are partial
+  partial_fraction: [0.3, 0.8]    # share of the purchase a partial refund returns
+  delay_days: [3, 30]             # days from the purchase to the refund

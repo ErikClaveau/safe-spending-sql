@@ -4,6 +4,7 @@ The loaded data is then checked through the real semantic views, which is the fi
 the generator and the schema meet.
 """
 
+import json
 import shutil
 from datetime import date
 from decimal import Decimal
@@ -224,6 +225,92 @@ def test_a_user_without_traps_sees_no_canary_at_all(trap_canaries):
         concepts = [r[0] for r in reader_rows(user_id, "SELECT concepto FROM v_movimientos")]
         assert not any("CNR" in c for c in concepts)
 
+
+# ---------------------------------------------------------------------------
+# Foreign currency, exchange fees and refunds through the semantic views
+# ---------------------------------------------------------------------------
+
+N_USERS_WITH_SCENARIOS = 7  # user 6 is the London trip and user 7 the Amazon refunds
+
+
+@pytest.fixture(scope="module")
+def scenario_data_dir(tmp_path_factory):
+    config = load_config().model_copy(update={"n_users": N_USERS_WITH_SCENARIOS})
+    clock = FixedClock(date(2026, 9, 15))
+    path = tmp_path_factory.mktemp("dataset_with_scenarios")
+    write_dataset(generate(config, load_catalog(), clock), path, config, clock.today(), configuration_hash())
+    return path
+
+
+@pytest.fixture
+def scenarios_loaded(scenario_data_dir, clean_database):
+    loader.load(scenario_data_dir, dbname=TEST_DB, reset_first=True)
+    params = {
+        row["type"]: json.loads(row["params"])
+        for row in pq.read_table(scenario_data_dir / "labels" / "scenarios.parquet").to_pylist()
+    }
+    labels = pq.read_table(scenario_data_dir / "labels" / "tx_labels.parquet").to_pylist()
+    return params, labels
+
+
+def test_pounds_and_their_exchange_rate_load_and_show_in_the_views(scenarios_loaded):
+    london = scenarios_loaded[0]["london_trip"]
+    with admin() as conn:  # the CHECK constraints accepted every foreign-currency row
+        assert conn.execute(
+            "SELECT count(*) FROM app.transactions WHERE currency = 'GBP' AND exchange_rate > 0 AND user_id = 6"
+        ).fetchone()[0] == london["n_purchases"]
+    rows = reader_rows(6, "SELECT divisa_original, importe_original, importe_eur FROM v_movimientos WHERE divisa_original <> 'EUR'")
+    assert len(rows) == london["n_purchases"] and {r[0] for r in rows} == {"GBP"}
+    assert all(original < 0 and euros < 0 for _, original, euros in rows)
+
+
+def test_the_trip_totals_in_the_views_match_the_scenario_truth(scenarios_loaded):
+    london = scenarios_loaded[0]["london_trip"]
+    spent, in_pounds = reader_rows(6, "SELECT SUM(gasto_eur), SUM(gasto_original) FROM v_gastos WHERE divisa_original = 'GBP'")[0]
+    fees, = reader_rows(6, "SELECT SUM(gasto_eur) FROM v_gastos WHERE concepto LIKE 'COMISION CAMBIO DIVISA%'")[0]
+    assert (spent, in_pounds, fees) == (Decimal(london["total_eur"]), Decimal(london["total_gbp"]), Decimal(london["total_fees_eur"]))
+    assert spent + fees == Decimal(london["total_charged_eur"])
+
+
+def test_exchange_fees_are_bank_fees_in_the_views(scenarios_loaded):
+    rows = reader_rows(6, "SELECT categoria, medio_pago, comercio, divisa_original FROM v_gastos WHERE concepto LIKE 'COMISION CAMBIO DIVISA%'")
+    assert rows and set(rows) == {("Comisiones", "Comisión", None, "EUR")}
+
+
+def test_every_refund_is_negative_spending_and_never_income(scenarios_loaded):
+    _, labels = scenarios_loaded
+    refunds = {}
+    for label in labels:
+        if label["refund_of_tx_id"] is not None:
+            refunds.setdefault(label["tx_id"] // 1_000_000, set()).add(label["tx_id"])
+    assert refunds and len(refunds) > 3  # several users have refunds, not only the scripted one
+    for user_id, tx_ids in refunds.items():
+        spending = dict(reader_rows(user_id, "SELECT id_movimiento, gasto_eur FROM v_gastos"))
+        income = {r[0] for r in reader_rows(user_id, "SELECT id_movimiento FROM v_ingresos")}
+        assert all(spending[tx_id] < 0 for tx_id in tx_ids)
+        assert not tx_ids & income
+
+
+def test_the_net_cost_of_amazon_in_the_views_matches_the_scenario_truth(scenarios_loaded):
+    amazon = scenarios_loaded[0]["amazon_refunds"]
+    net, = reader_rows(7, "SELECT SUM(gasto_eur) FROM v_gastos WHERE comercio = 'AMAZON'")[0]
+    refunds = reader_rows(7, "SELECT gasto_eur FROM v_gastos WHERE comercio = 'AMAZON' AND gasto_eur < 0")
+    assert net == Decimal(amazon["net_eur"])
+    assert len(refunds) == amazon["n_total_refunds"] + amazon["n_partial_refunds"]
+    assert -sum(r[0] for r in refunds) == Decimal(amazon["refunded_eur"])
+    assert reader_rows(7, "SELECT count(*) FROM v_ingresos WHERE comercio = 'AMAZON'")[0][0] == 0
+
+
+def test_the_single_view_invariant_holds_with_fees_refunds_and_foreign_payments(scenarios_loaded):
+    for user_id in range(1, N_USERS_WITH_SCENARIOS + 1):
+        everything = {r[0] for r in reader_rows(user_id, "SELECT id_movimiento FROM v_movimientos")}
+        gastos = {r[0] for r in reader_rows(user_id, "SELECT id_movimiento FROM v_gastos")}
+        ingresos = {r[0] for r in reader_rows(user_id, "SELECT id_movimiento FROM v_ingresos")}
+        assert gastos & ingresos == set() and gastos | ingresos == everything
+        balance, = reader_rows(user_id, "SELECT SUM(importe_eur) FROM v_movimientos")[0]
+        income, = reader_rows(user_id, "SELECT SUM(ingreso_eur) FROM v_ingresos")[0]
+        spending, = reader_rows(user_id, "SELECT SUM(gasto_eur) FROM v_gastos")[0]
+        assert balance == income - spending
 
 def test_the_loader_role_cannot_read_what_it_loaded(loaded):
     # app_loader has INSERT only (ADR-002): it is a write-only door into the database.

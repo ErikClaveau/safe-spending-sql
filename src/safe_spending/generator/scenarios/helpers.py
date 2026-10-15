@@ -2,6 +2,7 @@
 
 from datetime import date
 
+import numpy as np
 from pydantic import BaseModel
 
 from safe_spending.generator.enums import ScenarioType, TxCode
@@ -50,6 +51,13 @@ def card_purchase(
         merchant=merchant,
         scenario_id=ctx.scenario_id,
     )
+
+
+def booking_delay_days(ctx: ScenarioContext) -> int:
+    """Days a card purchase takes to be booked, with the same distribution as the baseline ones."""
+    weights = np.array(ctx.config.card_delay_weights, dtype=float)
+
+    return int(ctx.rng.choice(len(weights), p=weights / weights.sum()))
 
 
 def subscription_price_cents(merchant) -> int:

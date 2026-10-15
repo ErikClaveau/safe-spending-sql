@@ -28,8 +28,10 @@ SCENARIO_USERS = {
     3: ScenarioType.RECENT_SIGNUP,
     4: ScenarioType.ZERO_CATEGORY,
     5: ScenarioType.ANOMALOUS_MONTH,
+    6: ScenarioType.LONDON_TRIP,
+    7: ScenarioType.AMAZON_REFUNDS,
 }
-N_USERS = 8  # users 1-5 have a scenario; 6-8 are plain
+N_USERS = 9  # users 1-7 have a scenario; 8 and 9 are plain
 
 
 @pytest.fixture(scope="module")
@@ -138,13 +140,13 @@ def test_only_the_scenario_users_have_tagged_movements(dataset):
     for tx_id, scenario_id in scenario_by_tx.items():
         if scenario_id is not None:
             assert known[scenario_id] == owner[tx_id]
-    # Sign-up and zero-category only remove movements, so they tag nothing.
+    # Sign-up and zero-category only remove movements, so they tag nothing. London and Amazon add them.
     tagged_users = {owner[tx_id] for tx_id, sid in scenario_by_tx.items() if sid is not None}
-    assert tagged_users == {1, 2, 5}
+    assert tagged_users == {1, 2, 5, 6, 7}
 
 
 def test_users_without_a_scenario_are_untouched_by_the_scenarios(dataset, baseline):
-    for user_id in range(6, N_USERS + 1):
+    for user_id in range(8, N_USERS + 1):
         assert transactions_of(dataset, user_id) == transactions_of(baseline, user_id)
 
 

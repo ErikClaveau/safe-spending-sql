@@ -5,12 +5,15 @@ from datetime import date
 
 from safe_spending.generator.config import Catalog, GeneratorConfig
 from safe_spending.generator.enums import ScenarioType
-from safe_spending.generator.events import Event
+from safe_spending.generator.events import Event, drop_orphan_refunds
+from safe_spending.generator.fx import FxSeries
 from safe_spending.generator.profile import Profile
 from safe_spending.generator.rng import Stage, stream
 from safe_spending.generator.scenarios import (
+    amazon_refunds,
     anomalous_month,
     job_change,
+    london_trip,
     recent_signup,
     subscription_changes,
     zero_category,
@@ -28,12 +31,15 @@ INJECTORS: dict[ScenarioType, Injector] = {
     ScenarioType.RECENT_SIGNUP: recent_signup.inject,
     ScenarioType.ZERO_CATEGORY: zero_category.inject,
     ScenarioType.ANOMALOUS_MONTH: anomalous_month.inject,
+    ScenarioType.LONDON_TRIP: london_trip.inject,
+    ScenarioType.AMAZON_REFUNDS: amazon_refunds.inject,
 }
 
 
 def apply_scenarios(
         config: GeneratorConfig,
         catalog: Catalog,
+        fx: FxSeries,
         profile: Profile,
         events: list[Event],
         end: date
@@ -53,6 +59,7 @@ def apply_scenarios(
             ScenarioContext(
                 config=config,
                 catalog=catalog,
+                fx=fx,
                 profile=profile,
                 events=current,
                 rng=rng,
@@ -65,7 +72,8 @@ def apply_scenarios(
         signup_date = outcome.signup_date or signup_date
 
     return ScenarioApplication(
-        events=current,
+        # A scenario may drop a purchase; its refund must go with it.
+        events=drop_orphan_refunds(current),
         rows=tuple(rows),
         signup_date=signup_date
     )
