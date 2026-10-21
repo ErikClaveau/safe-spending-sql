@@ -46,6 +46,8 @@ uv run pytest lab/rls/tests              # lab suite (separate Postgres; not run
 
 Connection settings come from env vars with development defaults (`DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_ADMIN_USER`, `DB_ADMIN_PASSWORD`, `DB_<ROLE>_PASSWORD`); see `src/safe_spending/db/settings.py`. The dev and lab compose files must not publish the same host port: check `DB_PORT` before running the real suite, or it can hit the lab's Postgres and alter its roles (same role names).
 
+Secrets and overrides live in a git-ignored `.env` (template: `.env.example`, e.g. `ANTHROPIC_API_KEY`). There is no dotenv code: load it with `uv run --env-file .env <command>` or `UV_ENV_FILE=.env`. Tests never need the API key; they use a fake client.
+
 ## Database conventions
 
 - **Migrations are hand-written SQL run through Alembic** (no SQLAlchemy models, no autogenerate: it cannot express RLS, policies, `security_invoker` views or `COMMENT ON`). Each revision in `src/safe_spending/db/alembic/versions/` calls `run_sql_file("NNNN_name.sql")` and its `.down.sql`; the SQL lives in `src/safe_spending/db/alembic/sql/`. Migrations run as `app_owner` with `search_path = app`.

@@ -34,7 +34,8 @@ El baseline de la semana 3 fija el listón de calidad, latencia y coste. Se nece
 **Más difícil**
 - El coste y la latencia dependen de un tercero. Las ejecuciones completas cuestan dinero, por lo que la CI usa el subconjunto smoke.
 - Los alias de modelo pueden cambiar: hay que fijar la versión exacta en cada experimento.
-- La reproducibilidad es estadística, no bit a bit (temperatura 0 reduce la variación pero no la elimina).
+- La reproducibilidad es estadística, no bit a bit. `claude-sonnet-5-5` rechaza `temperature`, `top_p` y `top_k` distintos del valor por defecto, así que la variación solo se controla con el modelo fijado y el `effort`, que se fija explícitamente en la configuración (adaptador: `medium` por defecto).
+- Se activa la alternativa automática del proveedor ante un rechazo de seguridad (`fallbacks: "default"`). Si salta, el modelo que respondió no es el pedido: `LLMResponse.model` lo registra y el coste se calcula con el precio del modelo que respondió. Se puede desactivar por configuración para una medición limpia.
 
 **A revisar**
 - Si el coste de las evals completas resulta alto, ejecutar la completa solo de forma nocturna o manual.
