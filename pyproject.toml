@@ -16,12 +16,14 @@ dependencies = [
     "pyarrow>=25.0.1",
     "pyyaml>=6.0.3",
     "pydantic>=2.13.5",
+    "sqlglot>=30.23.0",
 ]
 
 [project.scripts]
 safe-spending-bootstrap = "safe_spending.db.bootstrap:main"
 safe-spending-generate = "safe_spending.generator.cli:main"
 safe-spending-load = "safe_spending.db.loader:main"
+safe-spending-golden = "safe_spending.evals.golden.cli:main"
 
 [dependency-groups]
 dev = [

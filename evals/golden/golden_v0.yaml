@@ -1,0 +1,1323 @@
+# Golden set v0 (plan section 4, week 2): functional questions about the evaluation users 1-15.
+#
+# Conventions the reference SQL follows, and the assistant is expected to follow too:
+#   - "gasto" is net spending: v_gastos.gasto_eur, where refunds count negative (ADR-005).
+#   - "hoy" is the reference date below: "este año" is 2026, "el mes pasado" is August 2026,
+#     "este trimestre" is July to today and "el trimestre anterior" is April to June 2026.
+#   - A period is written as fecha >= first day AND fecha < the day after the last one.
+#   - Money moved between the user's own accounts is neither spending nor income.
+#   - `fecha` is the booking date of the movement (the date ADR-008 still has to settle).
+#   - Every SQL is a single SELECT over the three semantic views, with a LIMIT, and never filters
+#     by user: isolation is Postgres RLS.
+# The expected answers are generated (expected_v0.json): `uv run safe-spending-golden refresh`.
+
+dataset_version: "0.5.0"
+reference_date: 2026-09-15
+
+questions:
+  # ---------------------------------------------------------------------------------------------
+  # Agregado simple
+  # ---------------------------------------------------------------------------------------------
+  - id: GS-001
+    question: "¿Cuánto gasté en supermercados en marzo de 2026?"
+    user_id: 8
+    category: agregado_simple
+    difficulty: facil
+    behavior: answer
+    reference_sql: |
+      SELECT SUM(gasto_eur) AS gasto_total
+      FROM v_gastos
+      WHERE categoria = 'Supermercados'
+        AND fecha >= '2026-03-01' AND fecha < '2026-04-01'
+      LIMIT 1
+
+  - id: GS-002
+    question: "¿Cuánto llevo gastado en restaurantes y bares este año?"
+    user_id: 9
+    category: agregado_simple
+    difficulty: facil
+    behavior: answer
+    reference_sql: |
+      SELECT SUM(gasto_eur) AS gasto_total
+      FROM v_gastos
+      WHERE categoria = 'Restaurantes y bares'
+        AND fecha >= '2026-01-01'
+      LIMIT 1
+
+  - id: GS-003
+    question: "¿Cuál fue mi gasto total el mes pasado?"
+    user_id: 10
+    category: agregado_simple
+    difficulty: facil
+    behavior: answer
+    reference_sql: |
+      SELECT SUM(gasto_eur) AS gasto_total
+      FROM v_gastos
+      WHERE fecha >= '2026-08-01' AND fecha < '2026-09-01'
+      LIMIT 1
+
+  - id: GS-004
+    question: "¿Cuántas compras con tarjeta hice en 2025?"
+    user_id: 11
+    category: agregado_simple
+    difficulty: media
+    behavior: answer
+    notes: "Una compra es un cargo con tarjeta: las devoluciones (gasto negativo) no cuentan como compras."
+    reference_sql: |
+      SELECT COUNT(*) AS compras
+      FROM v_gastos
+      WHERE medio_pago = 'Tarjeta' AND gasto_eur > 0
+        AND fecha >= '2025-01-01' AND fecha < '2026-01-01'
+      LIMIT 1
+
+  - id: GS-005
+    question: "¿Cuánto pagué de alquiler en 2025?"
+    user_id: 12
+    category: agregado_simple
+    difficulty: facil
+    behavior: answer
+    reference_sql: |
+      SELECT SUM(gasto_eur) AS alquiler
+      FROM v_gastos
+      WHERE categoria = 'Alquiler'
+        AND fecha >= '2025-01-01' AND fecha < '2026-01-01'
+      LIMIT 1
+
+  - id: GS-006
+    question: "¿Cuál es el importe medio de mis compras en Eroski?"
+    user_id: 13
+    category: agregado_simple
+    difficulty: media
+    behavior: answer
+    notes: "Media de las compras, sin las devoluciones."
+    reference_sql: |
+      SELECT AVG(gasto_eur) AS importe_medio
+      FROM v_gastos
+      WHERE comercio = 'EROSKI' AND gasto_eur > 0
+      LIMIT 1
+
+  - id: GS-007
+    question: "¿Cuánto gasté en transporte público en 2026?"
+    user_id: 14
+    category: agregado_simple
+    difficulty: facil
+    behavior: answer
+    reference_sql: |
+      SELECT SUM(gasto_eur) AS gasto_total
+      FROM v_gastos
+      WHERE categoria = 'Transporte público'
+        AND fecha >= '2026-01-01'
+      LIMIT 1
+
+  - id: GS-008
+    question: "¿Cuánto pagué en suministros el año pasado?"
+    user_id: 15
+    category: agregado_simple
+    difficulty: media
+    behavior: answer
+    reference_sql: |
+      SELECT SUM(gasto_eur) AS suministros
+      FROM v_gastos
+      WHERE categoria = 'Suministros'
+        AND fecha >= '2025-01-01' AND fecha < '2026-01-01'
+      LIMIT 1
+
+  - id: GS-009
+    question: "¿Cuánto llevo gastado este mes?"
+    user_id: 12
+    category: agregado_simple
+    difficulty: facil
+    behavior: answer
+    reference_sql: |
+      SELECT SUM(gasto_eur) AS gasto_total
+      FROM v_gastos
+      WHERE fecha >= '2026-09-01'
+      LIMIT 1
+
+  - id: GS-010
+    question: "¿En cuántos días distintos hice alguna compra con tarjeta en agosto de 2026?"
+    user_id: 8
+    category: agregado_simple
+    difficulty: media
+    behavior: answer
+    reference_sql: |
+      SELECT COUNT(DISTINCT fecha) AS dias_con_compras
+      FROM v_gastos
+      WHERE medio_pago = 'Tarjeta' AND gasto_eur > 0
+        AND fecha >= '2026-08-01' AND fecha < '2026-09-01'
+      LIMIT 1
+
+  - id: GS-011
+    question: "¿Cuánto gasté en cuidado personal?"
+    user_id: 4
+    category: agregado_simple
+    difficulty: media
+    behavior: answer
+    scenario_id: "004-zero_category"
+    notes: "Es un 0 de verdad, no falta de datos: el usuario tiene movimientos en todo el periodo pero nunca gasta en esta categoría."
+    reference_sql: |
+      SELECT COALESCE(SUM(gasto_eur), 0) AS gasto_total
+      FROM v_gastos
+      WHERE categoria = 'Cuidado personal'
+      LIMIT 1
+
+  - id: GS-012
+    question: "¿Cuánto gasté en cuidado personal en 2025?"
+    user_id: 4
+    category: agregado_simple
+    difficulty: media
+    behavior: answer
+    scenario_id: "004-zero_category"
+    notes: "Mismo 0 que la pregunta anterior, con un periodo con datos: la respuesta es 0 euros, no 'no hay datos'."
+    reference_sql: |
+      SELECT COALESCE(SUM(gasto_eur), 0) AS gasto_total
+      FROM v_gastos
+      WHERE categoria = 'Cuidado personal'
+        AND fecha >= '2025-01-01' AND fecha < '2026-01-01'
+      LIMIT 1
+
+  # ---------------------------------------------------------------------------------------------
+  # Comparativa temporal
+  # ---------------------------------------------------------------------------------------------
+  - id: GS-013
+    question: "¿Gasté más en ocio este trimestre que el anterior?"
+    user_id: 8
+    category: comparativa_temporal
+    difficulty: dificil
+    behavior: answer
+    notes: "'Ocio' es el grupo 'Ocio y viajes'. El trimestre actual está a medias (hasta el 15 de septiembre): la respuesta debe decirlo."
+    reference_sql: |
+      SELECT
+        SUM(gasto_eur) FILTER (WHERE fecha >= '2026-07-01' AND fecha < '2026-10-01') AS este_trimestre,
+        SUM(gasto_eur) FILTER (WHERE fecha >= '2026-04-01' AND fecha < '2026-07-01') AS trimestre_anterior
+      FROM v_gastos
+      WHERE grupo_categoria = 'Ocio y viajes'
+        AND fecha >= '2026-04-01'
+      LIMIT 1
+
+  - id: GS-014
+    question: "¿Gasté más en diciembre de 2025 que en noviembre de 2025?"
+    user_id: 9
+    category: comparativa_temporal
+    difficulty: facil
+    behavior: answer
+    reference_sql: |
+      SELECT
+        SUM(gasto_eur) FILTER (WHERE fecha >= '2025-12-01' AND fecha < '2026-01-01') AS diciembre,
+        SUM(gasto_eur) FILTER (WHERE fecha >= '2025-11-01' AND fecha < '2025-12-01') AS noviembre
+      FROM v_gastos
+      WHERE fecha >= '2025-11-01' AND fecha < '2026-01-01'
+      LIMIT 1
+
+  - id: GS-015
+    question: "¿Cómo evolucionó mi gasto en restaurantes y bares mes a mes en 2026?"
+    user_id: 10
+    category: comparativa_temporal
+    difficulty: media
+    behavior: answer
+    ordered: true
+    reference_sql: |
+      SELECT to_char(fecha, 'YYYY-MM') AS mes, SUM(gasto_eur) AS gasto
+      FROM v_gastos
+      WHERE categoria = 'Restaurantes y bares'
+        AND fecha >= '2026-01-01'
+      GROUP BY to_char(fecha, 'YYYY-MM')
+      ORDER BY mes
+      LIMIT 12
+
+  - id: GS-016
+    question: "¿Gasté más en agosto de este año que en agosto del año pasado?"
+    user_id: 11
+    category: comparativa_temporal
+    difficulty: media
+    behavior: answer
+    reference_sql: |
+      SELECT
+        SUM(gasto_eur) FILTER (WHERE fecha >= '2026-08-01' AND fecha < '2026-09-01') AS agosto_2026,
+        SUM(gasto_eur) FILTER (WHERE fecha >= '2025-08-01' AND fecha < '2025-09-01') AS agosto_2025
+      FROM v_gastos
+      WHERE (fecha >= '2026-08-01' AND fecha < '2026-09-01')
+         OR (fecha >= '2025-08-01' AND fecha < '2025-09-01')
+      LIMIT 1
+
+  - id: GS-017
+    question: "¿Cuál fue el mes en el que más gasté en 2025?"
+    user_id: 12
+    category: comparativa_temporal
+    difficulty: media
+    behavior: answer
+    ordered: true
+    reference_sql: |
+      SELECT to_char(fecha, 'YYYY-MM') AS mes, SUM(gasto_eur) AS gasto
+      FROM v_gastos
+      WHERE fecha >= '2025-01-01' AND fecha < '2026-01-01'
+      GROUP BY to_char(fecha, 'YYYY-MM')
+      ORDER BY gasto DESC
+      LIMIT 1
+
+  - id: GS-018
+    question: "¿Cuánto gasté en el primer semestre de este año comparado con el segundo semestre del año pasado?"
+    user_id: 13
+    category: comparativa_temporal
+    difficulty: media
+    behavior: answer
+    reference_sql: |
+      SELECT
+        SUM(gasto_eur) FILTER (WHERE fecha >= '2026-01-01' AND fecha < '2026-07-01') AS primer_semestre_2026,
+        SUM(gasto_eur) FILTER (WHERE fecha >= '2025-07-01' AND fecha < '2026-01-01') AS segundo_semestre_2025
+      FROM v_gastos
+      WHERE fecha >= '2025-07-01' AND fecha < '2026-07-01'
+      LIMIT 1
+
+  - id: GS-019
+    question: "¿Cuánto más o menos gasté en supermercados en julio que en junio de este año?"
+    user_id: 14
+    category: comparativa_temporal
+    difficulty: media
+    behavior: answer
+    reference_sql: |
+      SELECT
+        SUM(gasto_eur) FILTER (WHERE fecha >= '2026-07-01' AND fecha < '2026-08-01') AS julio,
+        SUM(gasto_eur) FILTER (WHERE fecha >= '2026-06-01' AND fecha < '2026-07-01') AS junio
+      FROM v_gastos
+      WHERE categoria = 'Supermercados'
+        AND fecha >= '2026-06-01' AND fecha < '2026-08-01'
+      LIMIT 1
+
+  - id: GS-020
+    question: "¿Mi gasto mensual medio de los meses completos de 2026 es mayor que el de 2025?"
+    user_id: 15
+    category: comparativa_temporal
+    difficulty: dificil
+    behavior: answer
+    notes: "Meses completos de 2026: de enero a agosto. Septiembre está a medias y no cuenta; el año 2025 son doce meses."
+    reference_sql: |
+      SELECT
+        SUM(gasto_eur) FILTER (WHERE fecha >= '2026-01-01' AND fecha < '2026-09-01') / 8 AS media_mensual_2026,
+        SUM(gasto_eur) FILTER (WHERE fecha >= '2025-01-01' AND fecha < '2026-01-01') / 12 AS media_mensual_2025
+      FROM v_gastos
+      WHERE fecha >= '2025-01-01' AND fecha < '2026-09-01'
+      LIMIT 1
+
+  # ---------------------------------------------------------------------------------------------
+  # Ranking
+  # ---------------------------------------------------------------------------------------------
+  - id: GS-021
+    question: "¿Cuáles son mis 5 comercios con más gasto este año?"
+    user_id: 10
+    category: ranking
+    difficulty: facil
+    behavior: answer
+    ordered: true
+    reference_sql: |
+      SELECT comercio, SUM(gasto_eur) AS gasto
+      FROM v_gastos
+      WHERE comercio IS NOT NULL
+        AND fecha >= '2026-01-01'
+      GROUP BY comercio
+      ORDER BY gasto DESC
+      LIMIT 5
+
+  - id: GS-022
+    question: "¿En qué categoría gasté más en 2025?"
+    user_id: 11
+    category: ranking
+    difficulty: facil
+    behavior: answer
+    ordered: true
+    reference_sql: |
+      SELECT categoria, SUM(gasto_eur) AS gasto
+      FROM v_gastos
+      WHERE fecha >= '2025-01-01' AND fecha < '2026-01-01'
+      GROUP BY categoria
+      ORDER BY gasto DESC
+      LIMIT 1
+
+  - id: GS-023
+    question: "¿Cuáles son mis 3 categorías con más gasto este año, sin contar el alquiler?"
+    user_id: 12
+    category: ranking
+    difficulty: media
+    behavior: answer
+    ordered: true
+    reference_sql: |
+      SELECT categoria, SUM(gasto_eur) AS gasto
+      FROM v_gastos
+      WHERE categoria <> 'Alquiler'
+        AND fecha >= '2026-01-01'
+      GROUP BY categoria
+      ORDER BY gasto DESC
+      LIMIT 3
+
+  - id: GS-024
+    question: "¿Cuáles fueron mis 5 compras más caras de este año?"
+    user_id: 13
+    category: ranking
+    difficulty: media
+    behavior: answer
+    ordered: true
+    notes: "Una compra es un cargo con tarjeta; el alquiler y los recibos no son compras."
+    reference_sql: |
+      SELECT fecha, comercio, gasto_eur
+      FROM v_gastos
+      WHERE medio_pago = 'Tarjeta' AND gasto_eur > 0
+        AND fecha >= '2026-01-01'
+      ORDER BY gasto_eur DESC, fecha
+      LIMIT 5
+
+  - id: GS-025
+    question: "¿En qué comercio compré más veces este año?"
+    user_id: 14
+    category: ranking
+    difficulty: media
+    behavior: answer
+    ordered: true
+    reference_sql: |
+      SELECT comercio, COUNT(*) AS compras
+      FROM v_gastos
+      WHERE medio_pago = 'Tarjeta' AND gasto_eur > 0
+        AND fecha >= '2026-01-01'
+      GROUP BY comercio
+      ORDER BY compras DESC, comercio
+      LIMIT 1
+
+  - id: GS-026
+    question: "¿Cuáles son mis tres meses con más gasto en restaurantes y bares desde que tengo la cuenta?"
+    user_id: 15
+    category: ranking
+    difficulty: media
+    behavior: answer
+    ordered: true
+    reference_sql: |
+      SELECT to_char(fecha, 'YYYY-MM') AS mes, SUM(gasto_eur) AS gasto
+      FROM v_gastos
+      WHERE categoria = 'Restaurantes y bares'
+      GROUP BY to_char(fecha, 'YYYY-MM')
+      ORDER BY gasto DESC, mes
+      LIMIT 3
+
+  - id: GS-027
+    question: "¿En qué comercios he gastado más de 200 euros este año? Ordénalos de mayor a menor."
+    user_id: 9
+    category: ranking
+    difficulty: media
+    behavior: answer
+    ordered: true
+    reference_sql: |
+      SELECT comercio, SUM(gasto_eur) AS gasto
+      FROM v_gastos
+      WHERE comercio IS NOT NULL
+        AND fecha >= '2026-01-01'
+      GROUP BY comercio
+      HAVING SUM(gasto_eur) > 200
+      ORDER BY gasto DESC
+      LIMIT 50
+
+  - id: GS-028
+    question: "¿Cuánto he gastado este año con cada medio de pago?"
+    user_id: 8
+    category: ranking
+    difficulty: facil
+    behavior: answer
+    ordered: true
+    reference_sql: |
+      SELECT medio_pago, SUM(gasto_eur) AS gasto
+      FROM v_gastos
+      WHERE fecha >= '2026-01-01'
+      GROUP BY medio_pago
+      ORDER BY gasto DESC
+      LIMIT 10
+
+  # ---------------------------------------------------------------------------------------------
+  # Filtro compuesto
+  # ---------------------------------------------------------------------------------------------
+  - id: GS-029
+    question: "¿Cuántas compras con tarjeta de más de 50 euros hice en fin de semana este año?"
+    user_id: 10
+    category: filtro_compuesto
+    difficulty: media
+    behavior: answer
+    notes: "Fin de semana: sábado y domingo, por la fecha del movimiento."
+    reference_sql: |
+      SELECT COUNT(*) AS compras
+      FROM v_gastos
+      WHERE medio_pago = 'Tarjeta' AND gasto_eur > 50
+        AND EXTRACT(DOW FROM fecha) IN (0, 6)
+        AND fecha >= '2026-01-01'
+      LIMIT 1
+
+  - id: GS-030
+    question: "¿Cuánto gasté en restaurantes y bares en fin de semana en 2025?"
+    user_id: 11
+    category: filtro_compuesto
+    difficulty: media
+    behavior: answer
+    reference_sql: |
+      SELECT SUM(gasto_eur) AS gasto_total
+      FROM v_gastos
+      WHERE categoria = 'Restaurantes y bares'
+        AND EXTRACT(DOW FROM fecha) IN (0, 6)
+        AND fecha >= '2025-01-01' AND fecha < '2026-01-01'
+      LIMIT 1
+
+  - id: GS-031
+    question: "¿Cuántas compras de entre 20 y 50 euros hice en supermercados este año y cuánto sumaron?"
+    user_id: 12
+    category: filtro_compuesto
+    difficulty: media
+    behavior: answer
+    reference_sql: |
+      SELECT COUNT(*) AS compras, SUM(gasto_eur) AS total
+      FROM v_gastos
+      WHERE categoria = 'Supermercados' AND medio_pago = 'Tarjeta'
+        AND gasto_eur BETWEEN 20 AND 50
+        AND fecha >= '2026-01-01'
+      LIMIT 1
+
+  - id: GS-032
+    question: "¿Qué recibos domiciliados de más de 40 euros he pagado este año y cuántas veces?"
+    user_id: 13
+    category: filtro_compuesto
+    difficulty: media
+    behavior: answer
+    ordered: true
+    reference_sql: |
+      SELECT comercio, COUNT(*) AS veces, SUM(gasto_eur) AS total
+      FROM v_gastos
+      WHERE medio_pago = 'Recibo' AND gasto_eur > 40
+        AND fecha >= '2026-01-01'
+      GROUP BY comercio
+      ORDER BY total DESC, comercio
+      LIMIT 20
+
+  - id: GS-033
+    question: "¿Cuánto he gastado en Mercadona y Carrefour este año en compras de más de 30 euros?"
+    user_id: 10
+    category: filtro_compuesto
+    difficulty: dificil
+    behavior: answer
+    reference_sql: |
+      SELECT comercio, SUM(gasto_eur) AS gasto
+      FROM v_gastos
+      WHERE comercio IN ('MERCADONA', 'CARREFOUR')
+        AND gasto_eur > 30
+        AND fecha >= '2026-01-01'
+      GROUP BY comercio
+      ORDER BY comercio
+      LIMIT 10
+
+  - id: GS-034
+    question: "¿Qué compras de ropa o electrónica de más de 100 euros hice entre abril y junio de este año?"
+    user_id: 15
+    category: filtro_compuesto
+    difficulty: media
+    behavior: answer
+    ordered: true
+    reference_sql: |
+      SELECT fecha, comercio, categoria, gasto_eur
+      FROM v_gastos
+      WHERE categoria IN ('Ropa y calzado', 'Electrónica')
+        AND gasto_eur > 100
+        AND fecha >= '2026-04-01' AND fecha < '2026-07-01'
+      ORDER BY fecha, comercio
+      LIMIT 50
+
+  - id: GS-035
+    question: "¿Cuántas compras de más de 30 euros hice un viernes o un sábado en agosto de 2026?"
+    user_id: 8
+    category: filtro_compuesto
+    difficulty: media
+    behavior: answer
+    reference_sql: |
+      SELECT COUNT(*) AS compras
+      FROM v_gastos
+      WHERE medio_pago = 'Tarjeta' AND gasto_eur > 30
+        AND EXTRACT(DOW FROM fecha) IN (5, 6)
+        AND fecha >= '2026-08-01' AND fecha < '2026-09-01'
+      LIMIT 1
+
+  - id: GS-036
+    question: "¿Qué gastos de más de 100 euros tuve este año, sin contar el alquiler?"
+    user_id: 9
+    category: filtro_compuesto
+    difficulty: media
+    behavior: answer
+    ordered: true
+    reference_sql: |
+      SELECT fecha, comercio, categoria, gasto_eur
+      FROM v_gastos
+      WHERE gasto_eur > 100
+        AND categoria <> 'Alquiler'
+        AND fecha >= '2026-01-01'
+      ORDER BY gasto_eur DESC, fecha
+      LIMIT 50
+
+  # ---------------------------------------------------------------------------------------------
+  # Ingresos frente a gastos
+  # ---------------------------------------------------------------------------------------------
+  - id: GS-037
+    question: "¿Cuánto ahorré cada mes de 2025?"
+    user_id: 8
+    category: ingresos_vs_gastos
+    difficulty: dificil
+    behavior: answer
+    ordered: true
+    notes: "Ahorro = ingresos menos gastos del mes. Hay que combinar las dos vistas."
+    reference_sql: |
+      SELECT mes, SUM(importe) AS ahorro
+      FROM (
+        SELECT to_char(fecha, 'YYYY-MM') AS mes, ingreso_eur AS importe
+        FROM v_ingresos
+        WHERE fecha >= '2025-01-01' AND fecha < '2026-01-01'
+        UNION ALL
+        SELECT to_char(fecha, 'YYYY-MM') AS mes, -gasto_eur AS importe
+        FROM v_gastos
+        WHERE fecha >= '2025-01-01' AND fecha < '2026-01-01'
+      ) movimientos
+      GROUP BY mes
+      ORDER BY mes
+      LIMIT 12
+
+  - id: GS-038
+    question: "¿Cuánto ahorré en total en 2025?"
+    user_id: 9
+    category: ingresos_vs_gastos
+    difficulty: media
+    behavior: answer
+    reference_sql: |
+      SELECT
+        (SELECT SUM(ingreso_eur) FROM v_ingresos WHERE fecha >= '2025-01-01' AND fecha < '2026-01-01')
+        - (SELECT SUM(gasto_eur) FROM v_gastos WHERE fecha >= '2025-01-01' AND fecha < '2026-01-01') AS ahorro
+      LIMIT 1
+
+  - id: GS-039
+    question: "¿Cuánto he cobrado de nómina este año?"
+    user_id: 10
+    category: ingresos_vs_gastos
+    difficulty: facil
+    behavior: answer
+    reference_sql: |
+      SELECT SUM(ingreso_eur) AS nomina
+      FROM v_ingresos
+      WHERE categoria = 'Nómina'
+        AND fecha >= '2026-01-01'
+      LIMIT 1
+
+  - id: GS-040
+    question: "¿Gasté más de lo que ingresé el mes pasado?"
+    user_id: 11
+    category: ingresos_vs_gastos
+    difficulty: media
+    behavior: answer
+    reference_sql: |
+      SELECT
+        (SELECT SUM(ingreso_eur) FROM v_ingresos WHERE fecha >= '2026-08-01' AND fecha < '2026-09-01') AS ingresos,
+        (SELECT SUM(gasto_eur) FROM v_gastos WHERE fecha >= '2026-08-01' AND fecha < '2026-09-01') AS gastos
+      LIMIT 1
+
+  - id: GS-041
+    question: "¿Qué porcentaje de mis ingresos de 2025 gasté?"
+    user_id: 12
+    category: ingresos_vs_gastos
+    difficulty: dificil
+    behavior: answer
+    reference_sql: |
+      SELECT ROUND(
+        100 * (SELECT SUM(gasto_eur) FROM v_gastos WHERE fecha >= '2025-01-01' AND fecha < '2026-01-01')
+        / (SELECT SUM(ingreso_eur) FROM v_ingresos WHERE fecha >= '2025-01-01' AND fecha < '2026-01-01'), 1
+      ) AS porcentaje_gastado
+      LIMIT 1
+
+  - id: GS-042
+    question: "¿Cuáles fueron mis ingresos totales en el segundo trimestre de este año?"
+    user_id: 13
+    category: ingresos_vs_gastos
+    difficulty: facil
+    behavior: answer
+    reference_sql: |
+      SELECT SUM(ingreso_eur) AS ingresos
+      FROM v_ingresos
+      WHERE fecha >= '2026-04-01' AND fecha < '2026-07-01'
+      LIMIT 1
+
+  - id: GS-043
+    question: "¿En qué meses de 2025 gasté más de lo que ingresé?"
+    user_id: 10
+    category: ingresos_vs_gastos
+    difficulty: dificil
+    behavior: answer
+    ordered: true
+    reference_sql: |
+      SELECT mes, ingresos, gastos
+      FROM (
+        SELECT mes, SUM(ingresos) AS ingresos, SUM(gastos) AS gastos
+        FROM (
+          SELECT to_char(fecha, 'YYYY-MM') AS mes, ingreso_eur AS ingresos, 0 AS gastos
+          FROM v_ingresos
+          WHERE fecha >= '2025-01-01' AND fecha < '2026-01-01'
+          UNION ALL
+          SELECT to_char(fecha, 'YYYY-MM') AS mes, 0 AS ingresos, gasto_eur AS gastos
+          FROM v_gastos
+          WHERE fecha >= '2025-01-01' AND fecha < '2026-01-01'
+        ) movimientos
+        GROUP BY mes
+      ) por_mes
+      WHERE gastos > ingresos
+      ORDER BY mes
+      LIMIT 12
+
+  - id: GS-044
+    question: "¿Cuánto cobré de nómina cada mes del primer semestre de 2026?"
+    user_id: 14
+    category: ingresos_vs_gastos
+    difficulty: media
+    behavior: answer
+    ordered: true
+    notes: "Los meses con paga extra (junio) suman dos pagos."
+    reference_sql: |
+      SELECT to_char(fecha, 'YYYY-MM') AS mes, SUM(ingreso_eur) AS nomina
+      FROM v_ingresos
+      WHERE categoria = 'Nómina'
+        AND fecha >= '2026-01-01' AND fecha < '2026-07-01'
+      GROUP BY to_char(fecha, 'YYYY-MM')
+      ORDER BY mes
+      LIMIT 6
+
+  # ---------------------------------------------------------------------------------------------
+  # Recurrentes
+  # ---------------------------------------------------------------------------------------------
+  - id: GS-045
+    question: "¿Qué suscripciones tengo activas ahora mismo?"
+    user_id: 1
+    category: recurrentes
+    difficulty: dificil
+    behavior: answer
+    scenario_id: "001-subscription_changes"
+    notes: "Activa = con un cargo en los últimos 35 días. Basic-Fit se canceló en marzo y no debe aparecer; Spotify empezó en diciembre."
+    reference_sql: |
+      SELECT comercio, MAX(fecha) AS ultimo_cargo, MAX(gasto_eur) AS importe
+      FROM v_gastos
+      WHERE categoria IN ('Suscripciones digitales', 'Deporte')
+      GROUP BY comercio
+      HAVING MAX(fecha) >= '2026-08-11'
+      ORDER BY comercio
+      LIMIT 20
+
+  - id: GS-046
+    question: "¿Cuánto pagaba al mes por Amazon Prime antes y después de la subida de precio?"
+    user_id: 1
+    category: recurrentes
+    difficulty: dificil
+    behavior: answer
+    ordered: true
+    scenario_id: "001-subscription_changes"
+    reference_sql: |
+      SELECT gasto_eur AS importe_mensual, MIN(fecha) AS desde, MAX(fecha) AS hasta, COUNT(*) AS cargos
+      FROM v_gastos
+      WHERE comercio = 'AMAZON PRIME'
+      GROUP BY gasto_eur
+      ORDER BY desde
+      LIMIT 5
+
+  - id: GS-047
+    question: "¿Cuándo fue mi último cargo de Basic-Fit?"
+    user_id: 1
+    category: recurrentes
+    difficulty: media
+    behavior: answer
+    scenario_id: "001-subscription_changes"
+    reference_sql: |
+      SELECT MAX(fecha) AS ultimo_cargo
+      FROM v_gastos
+      WHERE comercio = 'BASIC-FIT'
+      LIMIT 1
+
+  - id: GS-048
+    question: "¿Desde cuándo pago Spotify?"
+    user_id: 1
+    category: recurrentes
+    difficulty: facil
+    behavior: answer
+    scenario_id: "001-subscription_changes"
+    reference_sql: |
+      SELECT MIN(fecha) AS primer_cargo
+      FROM v_gastos
+      WHERE comercio = 'SPOTIFY'
+      LIMIT 1
+
+  - id: GS-049
+    question: "¿Qué recibos pago todos los meses?"
+    user_id: 8
+    category: recurrentes
+    difficulty: dificil
+    behavior: answer
+    ordered: true
+    notes: "Todos los meses del periodo con datos que están completos (de octubre de 2024 a agosto de 2026, 23 meses)."
+    reference_sql: |
+      SELECT comercio, COUNT(DISTINCT to_char(fecha, 'YYYY-MM')) AS meses_con_cargo, AVG(gasto_eur) AS importe_medio
+      FROM v_gastos
+      WHERE medio_pago = 'Recibo'
+        AND fecha >= '2024-10-01' AND fecha < '2026-09-01'
+      GROUP BY comercio
+      HAVING COUNT(DISTINCT to_char(fecha, 'YYYY-MM')) = 23
+      ORDER BY comercio
+      LIMIT 20
+
+  - id: GS-050
+    question: "¿Cuánto pago de media al mes de luz?"
+    user_id: 9
+    category: recurrentes
+    difficulty: media
+    behavior: answer
+    notes: "Media de los meses completos con recibo de suministros (de octubre de 2024 a agosto de 2026)."
+    reference_sql: |
+      SELECT AVG(mensual) AS media_mensual
+      FROM (
+        SELECT to_char(fecha, 'YYYY-MM') AS mes, SUM(gasto_eur) AS mensual
+        FROM v_gastos
+        WHERE categoria = 'Suministros'
+          AND fecha >= '2024-10-01' AND fecha < '2026-09-01'
+        GROUP BY to_char(fecha, 'YYYY-MM')
+      ) por_mes
+      LIMIT 1
+
+  - id: GS-051
+    question: "¿Cuánto me cuestan mis gastos fijos (alquiler y recibos) en un mes normal? Por ejemplo, en agosto de 2026."
+    user_id: 12
+    category: recurrentes
+    difficulty: media
+    behavior: answer
+    reference_sql: |
+      SELECT SUM(gasto_eur) AS gastos_fijos
+      FROM v_gastos
+      WHERE (categoria = 'Alquiler' OR medio_pago = 'Recibo')
+        AND fecha >= '2026-08-01' AND fecha < '2026-09-01'
+      LIMIT 1
+
+  - id: GS-052
+    question: "¿Cuándo cambió mi nómina y cuánto subió?"
+    user_id: 2
+    category: recurrentes
+    difficulty: dificil
+    behavior: answer
+    ordered: true
+    scenario_id: "002-job_change"
+    notes: "Cambio de empresa: la nómina pasa de 1.742,86 a 2.096,00 euros. Las pagas extra de cada periodo tienen el mismo importe que la ordinaria."
+    reference_sql: |
+      SELECT contraparte AS empresa, MIN(fecha) AS desde, MAX(fecha) AS hasta, MAX(ingreso_eur) AS importe, COUNT(*) AS pagos
+      FROM v_ingresos
+      WHERE categoria = 'Nómina'
+      GROUP BY contraparte
+      ORDER BY desde
+      LIMIT 5
+
+  # ---------------------------------------------------------------------------------------------
+  # Divisa (viaje a Londres, usuario 6)
+  # ---------------------------------------------------------------------------------------------
+  - id: GS-053
+    question: "¿Cuánto gasté en total en el viaje a Londres, incluidas las comisiones por el cambio de divisa?"
+    user_id: 6
+    category: divisa
+    difficulty: dificil
+    behavior: answer
+    scenario_id: "006-london_trip"
+    notes: "Pagos en libras convertidos a euros más las comisiones de cambio, que son movimientos aparte."
+    reference_sql: |
+      SELECT SUM(gasto_eur) AS total_euros
+      FROM v_gastos
+      WHERE divisa_original = 'GBP'
+         OR (categoria = 'Comisiones' AND concepto LIKE 'COMISION CAMBIO DIVISA%')
+      LIMIT 1
+
+  - id: GS-054
+    question: "¿Cuántas libras gasté en Londres?"
+    user_id: 6
+    category: divisa
+    difficulty: media
+    behavior: answer
+    scenario_id: "006-london_trip"
+    reference_sql: |
+      SELECT SUM(gasto_original) AS libras
+      FROM v_gastos
+      WHERE divisa_original = 'GBP'
+      LIMIT 1
+
+  - id: GS-055
+    question: "¿Cuánto me cobraron en comisiones por pagar en libras?"
+    user_id: 6
+    category: divisa
+    difficulty: media
+    behavior: answer
+    scenario_id: "006-london_trip"
+    reference_sql: |
+      SELECT SUM(gasto_eur) AS comisiones
+      FROM v_gastos
+      WHERE categoria = 'Comisiones' AND concepto LIKE 'COMISION CAMBIO DIVISA%'
+      LIMIT 1
+
+  - id: GS-056
+    question: "¿En qué categoría gasté más durante el viaje a Londres?"
+    user_id: 6
+    category: divisa
+    difficulty: media
+    behavior: answer
+    ordered: true
+    scenario_id: "006-london_trip"
+    reference_sql: |
+      SELECT categoria, SUM(gasto_eur) AS gasto
+      FROM v_gastos
+      WHERE divisa_original = 'GBP'
+      GROUP BY categoria
+      ORDER BY gasto DESC
+      LIMIT 1
+
+  - id: GS-057
+    question: "¿Cuántos pagos hice en libras?"
+    user_id: 6
+    category: divisa
+    difficulty: facil
+    behavior: answer
+    scenario_id: "006-london_trip"
+    reference_sql: |
+      SELECT COUNT(*) AS pagos
+      FROM v_gastos
+      WHERE divisa_original = 'GBP'
+      LIMIT 1
+
+  - id: GS-058
+    question: "¿A qué cambio medio me salió la libra en el viaje a Londres?"
+    user_id: 6
+    category: divisa
+    difficulty: dificil
+    behavior: answer
+    scenario_id: "006-london_trip"
+    notes: "Libras por euro: libras pagadas entre euros cobrados por esos pagos, sin contar las comisiones."
+    reference_sql: |
+      SELECT ROUND(SUM(gasto_original) / SUM(gasto_eur), 4) AS libras_por_euro
+      FROM v_gastos
+      WHERE divisa_original = 'GBP'
+      LIMIT 1
+
+  # ---------------------------------------------------------------------------------------------
+  # Devoluciones
+  # ---------------------------------------------------------------------------------------------
+  - id: GS-059
+    question: "¿Cuánto he gastado neto en Amazon?"
+    user_id: 7
+    category: devoluciones
+    difficulty: media
+    behavior: answer
+    scenario_id: "007-amazon_refunds"
+    notes: "Compras menos devoluciones."
+    reference_sql: |
+      SELECT SUM(gasto_eur) AS gasto_neto
+      FROM v_gastos
+      WHERE comercio = 'AMAZON'
+      LIMIT 1
+
+  - id: GS-060
+    question: "¿Cuánto dinero me han devuelto en total en Amazon?"
+    user_id: 7
+    category: devoluciones
+    difficulty: media
+    behavior: answer
+    scenario_id: "007-amazon_refunds"
+    reference_sql: |
+      SELECT SUM(-gasto_eur) AS devuelto
+      FROM v_gastos
+      WHERE comercio = 'AMAZON' AND gasto_eur < 0
+      LIMIT 1
+
+  - id: GS-061
+    question: "¿Cuántas compras de Amazon me devolvieron por completo?"
+    user_id: 7
+    category: devoluciones
+    difficulty: dificil
+    behavior: answer
+    scenario_id: "007-amazon_refunds"
+    notes: "Una devolución total es un abono por el mismo importe que una compra anterior."
+    reference_sql: |
+      SELECT COUNT(*) AS devoluciones_totales
+      FROM v_gastos r
+      JOIN v_gastos p ON p.comercio = r.comercio AND p.gasto_eur = -r.gasto_eur AND p.fecha < r.fecha
+      WHERE r.comercio = 'AMAZON' AND r.gasto_eur < 0
+      LIMIT 1
+
+  - id: GS-062
+    question: "¿Alguna devolución total de Amazon me llegó en un mes distinto al de la compra? ¿Cuándo?"
+    user_id: 7
+    category: devoluciones
+    difficulty: dificil
+    behavior: answer
+    ordered: true
+    scenario_id: "007-amazon_refunds"
+    reference_sql: |
+      SELECT r.fecha AS fecha_devolucion, -r.gasto_eur AS importe, p.fecha AS fecha_compra
+      FROM v_gastos r
+      JOIN v_gastos p ON p.comercio = r.comercio AND p.gasto_eur = -r.gasto_eur AND p.fecha < r.fecha
+      WHERE r.comercio = 'AMAZON' AND r.gasto_eur < 0
+        AND to_char(p.fecha, 'YYYY-MM') <> to_char(r.fecha, 'YYYY-MM')
+      ORDER BY r.fecha
+      LIMIT 10
+
+  - id: GS-063
+    question: "¿Cuánto me han devuelto en total desde que tengo la cuenta?"
+    user_id: 1
+    category: devoluciones
+    difficulty: media
+    behavior: answer
+    reference_sql: |
+      SELECT SUM(-gasto_eur) AS devuelto
+      FROM v_gastos
+      WHERE gasto_eur < 0
+      LIMIT 1
+
+  - id: GS-064
+    question: "¿En qué comercios me han hecho devoluciones y cuánto en cada uno?"
+    user_id: 8
+    category: devoluciones
+    difficulty: media
+    behavior: answer
+    ordered: true
+    reference_sql: |
+      SELECT comercio, SUM(-gasto_eur) AS devuelto, COUNT(*) AS devoluciones
+      FROM v_gastos
+      WHERE gasto_eur < 0
+      GROUP BY comercio
+      ORDER BY devuelto DESC, comercio
+      LIMIT 30
+
+  - id: GS-065
+    question: "¿Cuánto gasté neto en ropa y calzado en 2025, ya restando las devoluciones?"
+    user_id: 10
+    category: devoluciones
+    difficulty: media
+    behavior: answer
+    reference_sql: |
+      SELECT SUM(gasto_eur) AS gasto_neto
+      FROM v_gastos
+      WHERE categoria = 'Ropa y calzado'
+        AND fecha >= '2025-01-01' AND fecha < '2026-01-01'
+      LIMIT 1
+
+  # ---------------------------------------------------------------------------------------------
+  # Traspasos entre cuentas propias
+  # ---------------------------------------------------------------------------------------------
+  - id: GS-066
+    question: "¿Cuánto dinero he pasado a mi cuenta de ahorro en 2025?"
+    user_id: 10
+    category: traspasos
+    difficulty: media
+    behavior: answer
+    reference_sql: |
+      SELECT SUM(-importe_eur) AS pasado_a_ahorro
+      FROM v_movimientos
+      WHERE categoria = 'Traspasos entre cuentas propias'
+        AND concepto = 'TRASPASO A CUENTA AHORRO'
+        AND fecha >= '2025-01-01' AND fecha < '2026-01-01'
+      LIMIT 1
+
+  - id: GS-067
+    question: "¿Cuánto tengo en mi cuenta de ahorro?"
+    user_id: 11
+    category: traspasos
+    difficulty: dificil
+    behavior: answer
+    notes: "La cuenta de ahorro es la que solo tiene traspasos. Su saldo es lo que ha entrado menos lo que ha vuelto a la corriente."
+    reference_sql: |
+      SELECT cuenta, SUM(importe_eur) AS saldo
+      FROM v_movimientos
+      GROUP BY cuenta
+      HAVING BOOL_AND(categoria = 'Traspasos entre cuentas propias')
+      LIMIT 1
+
+  - id: GS-068
+    question: "¿Cuántas veces he pasado dinero de mi cuenta de ahorro a la corriente?"
+    user_id: 12
+    category: traspasos
+    difficulty: media
+    behavior: answer
+    reference_sql: |
+      SELECT COUNT(*) AS veces
+      FROM v_movimientos
+      WHERE categoria = 'Traspasos entre cuentas propias'
+        AND concepto = 'TRASPASO DE CUENTA AHORRO'
+      LIMIT 1
+
+  - id: GS-069
+    question: "¿Cuánto he ahorrado cada mes de este año, contando solo lo que he pasado a mi cuenta de ahorro?"
+    user_id: 14
+    category: traspasos
+    difficulty: media
+    behavior: answer
+    notes: "El traspaso va unos días después de la nómina, así que un mes puede quedar sin traspaso y el siguiente tener dos. Los meses sin traspaso no aparecen."
+    ordered: true
+    reference_sql: |
+      SELECT to_char(fecha, 'YYYY-MM') AS mes, SUM(-importe_eur) AS traspasado
+      FROM v_movimientos
+      WHERE categoria = 'Traspasos entre cuentas propias'
+        AND concepto = 'TRASPASO A CUENTA AHORRO'
+        AND fecha >= '2026-01-01'
+      GROUP BY to_char(fecha, 'YYYY-MM')
+      ORDER BY mes
+      LIMIT 12
+
+  - id: GS-070
+    question: "¿Cuánto gasté este año, sin contar lo que pasé a mi cuenta de ahorro?"
+    user_id: 15
+    category: traspasos
+    difficulty: dificil
+    behavior: answer
+    notes: "Los traspasos entre cuentas propias no son gasto: la respuesta es el gasto de v_gastos, no la suma de los importes negativos de v_movimientos."
+    reference_sql: |
+      SELECT SUM(gasto_eur) AS gasto_total
+      FROM v_gastos
+      WHERE fecha >= '2026-01-01'
+      LIMIT 1
+
+  # ---------------------------------------------------------------------------------------------
+  # Escenarios de los usuarios 3 y 5
+  # ---------------------------------------------------------------------------------------------
+  - id: GS-071
+    question: "¿Cuál fue mi compra más cara de octubre de 2025?"
+    user_id: 5
+    category: agregado_simple
+    difficulty: media
+    behavior: answer
+    scenario_id: "005-anomalous_month"
+    notes: "Octubre de 2025 es el mes anómalo del usuario: una compra grande de electrónica."
+    reference_sql: |
+      SELECT fecha, comercio, gasto_eur
+      FROM v_gastos
+      WHERE medio_pago = 'Tarjeta' AND gasto_eur > 0
+        AND fecha >= '2025-10-01' AND fecha < '2025-11-01'
+      ORDER BY gasto_eur DESC, fecha
+      LIMIT 1
+
+  - id: GS-072
+    question: "¿Qué mes de 2025 gasté más, y cuánto fue?"
+    user_id: 5
+    category: comparativa_temporal
+    difficulty: media
+    behavior: answer
+    ordered: true
+    scenario_id: "005-anomalous_month"
+    reference_sql: |
+      SELECT to_char(fecha, 'YYYY-MM') AS mes, SUM(gasto_eur) AS gasto
+      FROM v_gastos
+      WHERE fecha >= '2025-01-01' AND fecha < '2026-01-01'
+      GROUP BY to_char(fecha, 'YYYY-MM')
+      ORDER BY gasto DESC
+      LIMIT 1
+
+  - id: GS-073
+    question: "¿Desde cuándo tengo movimientos en mi cuenta?"
+    user_id: 3
+    category: agregado_simple
+    difficulty: facil
+    behavior: answer
+    scenario_id: "003-recent_signup"
+    reference_sql: |
+      SELECT MIN(fecha) AS primer_movimiento
+      FROM v_movimientos
+      LIMIT 1
+
+  # ---------------------------------------------------------------------------------------------
+  # Ambiguas: pedir aclaración o explicitar el supuesto
+  # ---------------------------------------------------------------------------------------------
+  - id: GS-074
+    question: "¿Estoy gastando mucho?"
+    user_id: 8
+    category: ambigua
+    difficulty: media
+    behavior: clarify
+    notes: "No dice con qué compararse (mis ingresos, otros meses) ni en qué periodo."
+
+  - id: GS-075
+    question: "¿Cuánto gasté en comida?"
+    user_id: 9
+    category: ambigua
+    difficulty: media
+    behavior: clarify
+    notes: "Comida puede ser supermercados, restaurantes, comida a domicilio o todo el grupo Alimentación; y no hay periodo."
+
+  - id: GS-076
+    question: "Compárame con el año pasado."
+    user_id: 10
+    category: ambigua
+    difficulty: dificil
+    behavior: clarify
+    notes: "No dice qué comparar (gasto total, una categoría, ahorro) ni con qué periodo exacto."
+
+  - id: GS-077
+    question: "¿Cuánto me costó lo del otro día?"
+    user_id: 11
+    category: ambigua
+    difficulty: dificil
+    behavior: clarify
+    notes: "No identifica ningún movimiento: ni día, ni comercio, ni importe."
+
+  # ---------------------------------------------------------------------------------------------
+  # Sin datos: decirlo, sin inventar
+  # ---------------------------------------------------------------------------------------------
+  - id: GS-078
+    question: "¿Cuánto gasté en 2025?"
+    user_id: 3
+    category: sin_datos
+    difficulty: media
+    behavior: no_data
+    scenario_id: "003-recent_signup"
+    notes: "El usuario se dio de alta en julio de 2026: no hay datos de 2025, y eso no es lo mismo que gastar 0 euros."
+    reference_sql: |
+      SELECT COUNT(*) AS movimientos
+      FROM v_movimientos
+      WHERE fecha >= '2025-01-01' AND fecha < '2026-01-01'
+      LIMIT 1
+
+  - id: GS-079
+    question: "¿Cuánto gasté en 2019?"
+    user_id: 8
+    category: sin_datos
+    difficulty: facil
+    behavior: no_data
+    reference_sql: |
+      SELECT COUNT(*) AS movimientos
+      FROM v_movimientos
+      WHERE fecha >= '2019-01-01' AND fecha < '2020-01-01'
+      LIMIT 1
+
+  - id: GS-080
+    question: "¿Cuánto gasté en agosto de 2024?"
+    user_id: 9
+    category: sin_datos
+    difficulty: media
+    behavior: no_data
+    notes: "Los datos empiezan el 16 de septiembre de 2024."
+    reference_sql: |
+      SELECT COUNT(*) AS movimientos
+      FROM v_movimientos
+      WHERE fecha >= '2024-08-01' AND fecha < '2024-09-01'
+      LIMIT 1
+
+  - id: GS-081
+    question: "¿Cuánto voy a gastar en octubre de 2026?"
+    user_id: 10
+    category: sin_datos
+    difficulty: dificil
+    behavior: no_data
+    notes: "Es el futuro respecto a la fecha de referencia (15 de septiembre de 2026): no hay datos y no se hacen predicciones."
+    reference_sql: |
+      SELECT COUNT(*) AS movimientos
+      FROM v_movimientos
+      WHERE fecha >= '2026-10-01' AND fecha < '2026-11-01'
+      LIMIT 1
+
+  # ---------------------------------------------------------------------------------------------
+  # Fuera de dominio: rechazo educado
+  # ---------------------------------------------------------------------------------------------
+  - id: GS-082
+    question: "¿Qué acciones me recomiendas comprar?"
+    user_id: 8
+    category: fuera_de_dominio
+    difficulty: facil
+    behavior: refuse
+
+  - id: GS-083
+    question: "¿Cuál es la capital de Francia?"
+    user_id: 9
+    category: fuera_de_dominio
+    difficulty: facil
+    behavior: refuse
+
+  - id: GS-084
+    question: "Haz una transferencia de 100 euros a mi hermano."
+    user_id: 10
+    category: fuera_de_dominio
+    difficulty: media
+    behavior: refuse
+    notes: "El asistente consulta movimientos, no ejecuta operaciones."
+
+  - id: GS-085
+    question: "¿Qué debería hacer con mis ahorros?"
+    user_id: 11
+    category: fuera_de_dominio
+    difficulty: media
+    behavior: refuse
+    notes: "Recomendaciones de ahorro o inversión quedan fuera del alcance del proyecto."
+
+  # ---------------------------------------------------------------------------------------------
+  # Más preguntas de los escenarios de los usuarios 2, 3 y 4
+  # ---------------------------------------------------------------------------------------------
+  - id: GS-086
+    question: "¿Cuánto cobro de nómina al mes ahora?"
+    user_id: 2
+    category: recurrentes
+    difficulty: facil
+    behavior: answer
+    ordered: true
+    scenario_id: "002-job_change"
+    notes: "La nómina actual es la del último pago, tras el cambio de empresa."
+    reference_sql: |
+      SELECT ingreso_eur AS nomina_actual, contraparte AS empresa, fecha
+      FROM v_ingresos
+      WHERE categoria = 'Nómina'
+      ORDER BY fecha DESC
+      LIMIT 1
+
+  - id: GS-087
+    question: "¿Cuánto he cobrado de nómina en total este año?"
+    user_id: 2
+    category: ingresos_vs_gastos
+    difficulty: media
+    behavior: answer
+    scenario_id: "002-job_change"
+    notes: "El año mezcla dos empresas y dos importes: la suma tiene que contar cada pago con su importe."
+    reference_sql: |
+      SELECT SUM(ingreso_eur) AS nomina_total
+      FROM v_ingresos
+      WHERE categoria = 'Nómina'
+        AND fecha >= '2026-01-01'
+      LIMIT 1
+
+  - id: GS-088
+    question: "¿Cuánto he gastado desde que me di de alta?"
+    user_id: 3
+    category: agregado_simple
+    difficulty: facil
+    behavior: answer
+    scenario_id: "003-recent_signup"
+    notes: "Todo el historial del usuario son unas nueve semanas: no hay que ponerle periodo."
+    reference_sql: |
+      SELECT SUM(gasto_eur) AS gasto_total
+      FROM v_gastos
+      LIMIT 1
+
+  - id: GS-089
+    question: "¿Cuánto gasté en salud y cuidado personal en 2025?"
+    user_id: 4
+    category: agregado_simple
+    difficulty: dificil
+    behavior: answer
+    scenario_id: "004-zero_category"
+    notes: "Es el grupo entero. La categoría 'Cuidado personal' es 0, pero el grupo incluye Farmacia y Salud, que sí tienen gasto: no hay que dar un 0."
+    reference_sql: |
+      SELECT SUM(gasto_eur) AS gasto_total
+      FROM v_gastos
+      WHERE grupo_categoria = 'Salud y cuidado personal'
+        AND fecha >= '2025-01-01' AND fecha < '2026-01-01'
+      LIMIT 1
+
+  - id: GS-090
+    question: "¿Cuánto gasté en electrónica en octubre de 2025?"
+    user_id: 5
+    category: agregado_simple
+    difficulty: media
+    behavior: answer
+    scenario_id: "005-anomalous_month"
+    notes: "Octubre de 2025 es el mes anómalo: la compra grande de electrónica pesa casi todo el resultado."
+    reference_sql: |
+      SELECT SUM(gasto_eur) AS gasto_total
+      FROM v_gastos
+      WHERE categoria = 'Electrónica'
+        AND fecha >= '2025-10-01' AND fecha < '2025-11-01'
+      LIMIT 1

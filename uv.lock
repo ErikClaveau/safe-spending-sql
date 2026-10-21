@@ -550,6 +550,7 @@ dependencies = [
     { name = "pydantic" },
     { name = "pyyaml" },
     { name = "sqlalchemy" },
+    { name = "sqlglot" },
 ]
 
 [package.dev-dependencies]
@@ -567,6 +568,7 @@ requires-dist = [
     { name = "pydantic", specifier = ">=2.13.5" },
     { name = "pyyaml", specifier = ">=6.0.3" },
     { name = "sqlalchemy", specifier = ">=2.0" },
+    { name = "sqlglot", specifier = ">=30.23.0" },
 ]
 
 [package.metadata.requires-dev]
@@ -642,6 +644,15 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/e5/8e/1739b378a2b40bfc5541355c9d944b96dffcbe86aa1ed3aff31ad13f5d9b/sqlalchemy-2.1.3-cp315-cp315t-win_amd64.whl", hash = "sha256:a9c33c0d081a9d2c94229b9ae1834cb2ef81dd81253df4763e32111287b64c31", size = 2499211, upload-time = "2026-10-03T02:56:54.801Z" },
     { url = "https://files.pythonhosted.org/packages/5d/9a/ce4ea58551258203381017bc4724369cc8948ac5a46212671266b13424c4/sqlalchemy-2.1.3-cp315-cp315t-win_arm64.whl", hash = "sha256:c36ff11196dacf50312a2cc51a798bb41611331c174871f065be651a838a5361", size = 2418086, upload-time = "2026-10-03T02:44:11.611Z" },
     { url = "https://files.pythonhosted.org/packages/e5/12/23d8fb7ed90e5b674006ace415ede1c60cdfc38ace50968b59ef42c22754/sqlalchemy-2.1.3-py3-none-any.whl", hash = "sha256:6f0cf4debd86cb5623a50310784bd005c215761ca7f618d0d4f46193d033675a", size = 2052603, upload-time = "2026-10-03T02:34:19.115Z" },
+]
+
+[[package]]
+name = "sqlglot"
+version = "30.23.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/0c/40/4afe7d21cdf3dbb5a7529ea33a0e07055081fb3d37bc0550e7c2278d6ec0/sqlglot-30.23.0.tar.gz", hash = "sha256:34b5b62fa4cbf042ee6b9e829236577b2f8db4538dd20007de2aa5383c92e845", size = 6108071, upload-time = "2026-10-14T21:48:38.209Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/2d/73/9e749f3e57ca471bf663eb6d51fbe79b9921c5b7376706cd1cac999c8e2e/sqlglot-30.23.0-py3-none-any.whl", hash = "sha256:b5a645722cb4c6b649e9131b94830d9df9a557e87be63713179d848320f2baa1", size = 783709, upload-time = "2026-10-14T21:48:36.327Z" },
 ]
 
 [[package]]
