@@ -212,6 +212,7 @@ Cada escenario es un **inyector**: recibe el contexto del usuario, parámetros y
 - Nunca se itera sobre un `set` de strings sin ordenar, porque su orden cambia entre ejecuciones.
 - Versiones de dependencias fijadas con lockfile (Faker y numpy incluidas).
 - **Los datos no se versionan en el repositorio;** sí la configuración y el manifiesto. Un test de CI regenera el dataset y compara los hashes con el manifiesto. Un cambio intencionado exige subir `dataset_version` y regenerar el manifiesto.
+  - **Implementado (2026-10-21):** el manifiesto del dataset oficial está en `dataset/manifest.json` y `tests/generator/test_reference_manifest.py` regenera el dataset y compara versión, semilla, hash de la configuración y filas y SHA-256 de cada fichero. Tras un cambio intencionado: subir `dataset_version` y ejecutar `uv run safe-spending-generate --update-reference-manifest`. Todavía no hay runner de CI que lo ejecute. Los bytes de Parquet dependen de la versión fijada de pyarrow.
 
 ### 6.2 Validación del realismo
 

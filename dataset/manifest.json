@@ -1,0 +1,44 @@
+{
+  "config_hash": "f9b32bf34997b4be21206120cbe871a6942eb92f5c2e6ef1114625ce30905162",
+  "dataset_version": "0.5.0",
+  "files": {
+    "labels/scenarios.parquet": {
+      "rows": 7,
+      "sha256": "24e5a7f75914c5cc942ec92a54eb9c3eeaed88c3d04e29b9b59a1f4cd7a1843b"
+    },
+    "labels/tx_labels.parquet": {
+      "rows": 29234,
+      "sha256": "61297b393fa51b4ebbe14e9530a4a8470a549a67c27c4d3e7439ace58590e04d"
+    },
+    "labels/user_labels.parquet": {
+      "rows": 25,
+      "sha256": "bf9d9b77d7a9bcf92da4d1033df0613a9851925ae7428b44f0ce0eb8cc409170"
+    },
+    "operational/accounts.parquet": {
+      "rows": 36,
+      "sha256": "ffdba12549d3e035dfc8c202bb72dc50e15d1b4ed7f69bf2b6731772b51bd59b"
+    },
+    "operational/categories.parquet": {
+      "rows": 32,
+      "sha256": "05a0928656b63eb7bccdd556cf3050d3a6d49c8f135f396397d929756c2a8fd3"
+    },
+    "operational/merchants.parquet": {
+      "rows": 72,
+      "sha256": "06571984e21352e4f50a5152a2975ec2025ec857bd6fbad42d0b8b7736ebfd3c"
+    },
+    "operational/transactions.parquet": {
+      "rows": 29234,
+      "sha256": "fc7ce0b5e394f1e44195f720cfbbc82b0026c08b7d98e04d9f26cf1f560ecca7"
+    },
+    "operational/users.parquet": {
+      "rows": 25,
+      "sha256": "64ced61cce66f100d3b18ccc5a82ff257fdf34d26b3f5e3d5d718182fd9eef8c"
+    }
+  },
+  "period": {
+    "end": "2026-09-15",
+    "start": "2024-09-16"
+  },
+  "reference_date": "2026-09-15",
+  "seed": 20260915
+}

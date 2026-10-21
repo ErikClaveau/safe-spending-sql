@@ -66,4 +66,4 @@ La comparación (`matches`) ignora el orden de las filas salvo que `ordered` sea
 4. Comprueba todo: `uv run safe-spending-golden check` y `uv run pytest tests/evals`.
 5. Commitea el YAML y `expected_v0.json` juntos.
 
-Si cambias el generador o su configuración, sube `dataset_version` en `config.yaml` y en `golden_v0.yaml`, y repite el paso 3: el cambio de cifras queda a la vista en el diff de `expected_v0.json`, una línea por pregunta.
+Si cambias el generador o su configuración, sube `dataset_version` en `config.yaml` y en `golden_v0.yaml`, actualiza la huella del dataset con `uv run safe-spending-generate --update-reference-manifest` y repite el paso 3: el cambio de cifras queda a la vista en el diff de `expected_v0.json`, una línea por pregunta.

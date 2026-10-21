@@ -22,6 +22,8 @@ from safe_spending.schemas import FileInfo, Manifest, Period
 from safe_spending.tables import LABELS, OPERATIONAL
 
 
+REFERENCE_MANIFEST = Path(__file__).parents[3] / "dataset" / "manifest.json"  # the official dataset, committed
+
 MONEY = pa.decimal128(12, 2)
 
 SCHEMAS = {
