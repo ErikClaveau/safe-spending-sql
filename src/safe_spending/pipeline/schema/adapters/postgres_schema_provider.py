@@ -9,11 +9,11 @@ from psycopg import Connection
 
 from safe_spending.db import settings
 from safe_spending.db.exceptions import SchemaDocumentationError
-from safe_spending.pipeline.schema.category_doc import CategoryDoc
-from safe_spending.pipeline.schema.column_doc import ColumnDoc
-from safe_spending.pipeline.schema.schema_provider import SchemaProvider
-from safe_spending.pipeline.schema.semantic_schema import SemanticSchema
-from safe_spending.pipeline.schema.view_doc import ViewDoc
+from safe_spending.pipeline.schema.schemas.category_doc import CategoryDoc
+from safe_spending.pipeline.schema.schemas.column_doc import ColumnDoc
+from safe_spending.pipeline.schema.ports.schema_provider import SchemaProvider
+from safe_spending.pipeline.schema.schemas.semantic_schema import SemanticSchema
+from safe_spending.pipeline.schema.schemas.view_doc import ViewDoc
 
 _VIEWS = """
     SELECT c.oid, c.relname, obj_description(c.oid, 'pg_class')

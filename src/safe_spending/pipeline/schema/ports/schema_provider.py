@@ -2,7 +2,7 @@
 
 from typing import Protocol
 
-from safe_spending.pipeline.schema.semantic_schema import SemanticSchema
+from safe_spending.pipeline.schema.schemas.semantic_schema import SemanticSchema
 
 
 class SchemaProvider(Protocol):

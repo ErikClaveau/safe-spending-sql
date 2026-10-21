@@ -2,8 +2,8 @@ import hashlib
 
 from pydantic import BaseModel, ConfigDict, Field, computed_field
 
-from safe_spending.pipeline.schema.category_doc import CategoryDoc
-from safe_spending.pipeline.schema.view_doc import ViewDoc
+from safe_spending.pipeline.schema.schemas.category_doc import CategoryDoc
+from safe_spending.pipeline.schema.schemas.view_doc import ViewDoc
 
 
 class SemanticSchema(BaseModel):

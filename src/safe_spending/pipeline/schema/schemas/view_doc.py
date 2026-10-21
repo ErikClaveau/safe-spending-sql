@@ -1,6 +1,6 @@
 from pydantic import BaseModel, ConfigDict, Field
 
-from safe_spending.pipeline.schema.column_doc import ColumnDoc
+from safe_spending.pipeline.schema.schemas.column_doc import ColumnDoc
 
 
 class ViewDoc(BaseModel):

@@ -2,7 +2,7 @@ from typing import Self
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from safe_spending.pipeline.generation.generator_action import GeneratorAction
+from safe_spending.pipeline.generation.schemas.generator_action import GeneratorAction
 
 
 class GeneratorResponse(BaseModel):
