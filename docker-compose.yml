@@ -1,0 +1,23 @@
+# Development Postgres for the assistant (ADR-001: PostgreSQL only, >= 15).
+# Port 5434 avoids clashing with a local Postgres (5432) and the RLS lab (5433).
+# The superuser is only used by `safe-spending-bootstrap` to create roles and the
+# database; migrations run as app_owner and the API as app_reader.
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: postgres
+    ports:
+      - "127.0.0.1:5434:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 2s
+      timeout: 3s
+      retries: 15
+
+volumes:
+  pgdata:

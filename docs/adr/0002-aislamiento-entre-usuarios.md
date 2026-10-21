@@ -1,6 +1,6 @@
 # ADR-002: Aislamiento entre usuarios basado exclusivamente en Row-Level Security
 
-**Estado:** Propuesto (pasa a Aceptado cuando el laboratorio de RLS valide los puntos de la sección "Criterios de aceptación")
+**Estado:** Aceptado el 2026-10-05, tras validar el laboratorio de RLS (`lab/rls/`) los puntos de la sección "Criterios de aceptación"
 **Fecha:** 2026-10-01
 **Decide:** Erik Claveau
 **Relacionados:** ADR-001 (PostgreSQL como único motor), ADR-005 (qué ve el LLM: tablas o vistas)
@@ -140,8 +140,32 @@ La opción B protege contra un error concreto: RLS mal configurada. Pero lo hace
 
 ## Criterios de aceptación (laboratorio de RLS)
 
-- [ ] Una política con `FORCE` impide al propietario ver filas sin la variable fijada.
-- [ ] Una vista sin `security_invoker` se comporta como se espera y una con `security_invoker` respeta RLS.
-- [ ] `set_config(..., true)` no persiste tras el fin de la transacción en una conexión reutilizada del pool.
-- [ ] Una variable vacía o ausente produce 0 filas.
-- [ ] `app_reader` no puede escribir aunque intente desactivar el modo de solo lectura dentro de la transacción. Si puede hacerlo, el bloqueo depende de los `GRANT`; documentarlo.
+- [x] Una política con `FORCE` impide al propietario ver filas sin la variable fijada.
+- [x] Una vista sin `security_invoker` se comporta como se espera y una con `security_invoker` respeta RLS.
+- [x] `set_config(..., true)` no persiste tras el fin de la transacción en una conexión reutilizada del pool.
+- [x] Una variable vacía o ausente produce 0 filas.
+- [x] `app_reader` no puede escribir aunque intente desactivar el modo de solo lectura dentro de la transacción. Si puede hacerlo, el bloqueo depende de los `GRANT`; documentarlo. *(Puede hacerlo antes de la primera consulta: ver resultados.)*
+
+## Resultados del laboratorio
+
+Ejecutado el 2026-10-05 sobre PostgreSQL 16 (`lab/rls/`, 47 tests en verde: 31 de criterios y tests asociados, 16 de configuración). Los tests se conectan solo como `app_owner` y `app_reader`; el superusuario únicamente crea roles y esquema, porque se salta RLS.
+
+| Criterio | Resultado |
+|---|---|
+| 1. `FORCE` y propietario | `app_owner` ve 0 filas, con y sin variable fijada: la política es `TO app_reader`, así que al propietario no le aplica ninguna y rige la denegación por defecto. Control con `NO FORCE`: ve todas las filas. |
+| 2. Vistas | La vista con `security_invoker` filtra por usuario. Una vista sin la opción se ejecuta como su propietario: con `FORCE` devuelve 0 filas (el propietario no tiene política) y con `NO FORCE` filtra todo. |
+| 3. Pool | Con `set_config(..., true)` la variable no sobrevive al `COMMIT` y la siguiente transacción de la conexión ve 0 filas. Control con `false`: persiste y hay fuga. |
+| 4. Variable vacía o ausente | Sin fijar, `''`, `'0'` y `'-1'` dan 0 filas. |
+| 5. Solo lectura | Ver hallazgos. |
+
+### Hallazgos
+
+- **`FORCE` y `security_invoker` son capas independientes y cada una cubre el fallo de la otra.** Con `FORCE`, una vista sin `security_invoker` no filtra datos, pero solo porque el propietario no tiene política. Si el propietario fuera superusuario o tuviera `BYPASSRLS`, o una política futura lo incluyera, la vista filtraría datos. Se mantienen las dos, y la verificación de configuración exige `security_invoker` en todas las vistas del esquema.
+- **El modo de solo lectura no es una barrera por sí solo.** `app_reader` puede salir de él con `SET transaction_read_only = off` o `SET TRANSACTION READ WRITE` si es lo primero que ejecuta la transacción; ahí solo lo detienen los `GRANT` (`permission denied`). Tras cualquier consulta, Postgres lo rechaza (`transaction read-write mode must be set before any query`), y como la primera sentencia del executor es `set_config('app.user_id', ...)`, el flujo real queda cubierto. Decisión: los `GRANT` son la barrera de escritura (`app_reader` solo tiene `SELECT`), y el modo de solo lectura es una segunda capa.
+- **`SET default_transaction_read_only = off` se acepta a nivel de sesión** y persistiría en una conexión del pool. Las escrituras siguen fallando por los `GRANT`. Mitigación: sqlglot debe rechazar cualquier `SET` en el SQL generado y el executor debe abrir siempre `BEGIN READ ONLY` de forma explícita.
+- **Un valor no numérico en `app.user_id`** (`'abc'`) falla cerrado pero con una excepción de conversión (`invalid input syntax for type integer`), no con 0 filas. Es inocuo porque el id lo fija la capa de autenticación, nunca el usuario ni el LLM.
+- **`app_reader` no puede asumir otro rol** (`SET ROLE app_owner` da `permission denied`).
+
+### Verificación de configuración
+
+Implementada en `lab/rls/config_checks.py` como consultas al catálogo, con 11 controles negativos (se rompe la configuración a propósito y el chequeo debe fallar). El descubrimiento es estructural: toda tabla del esquema con columna `user_id` y toda vista del esquema se comprueban sin mantener una lista a mano, de modo que una tabla nueva sin RLS rompe el test. Se comprueba además que `app_reader` tiene una política `SELECT` en cada tabla con datos de usuario.

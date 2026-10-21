@@ -1,0 +1,131 @@
+# Generator configuration (design: docs/generator-design.md). Together with the two
+# catalogs next to it, its hash goes into manifest.json.
+
+dataset_version: "0.5.0"
+seed: 20260915
+reference_date: 2026-09-15
+period_start: 2024-09-16
+
+# Slice 1 generates a small population. The full design is 100 users (1-100).
+n_users: 25
+
+# Inclusive user id ranges (design 3.3).
+splits:
+  eval_functional: [1, 15]
+  eval_adversarial: [16, 20]
+  population: [21, 100]
+
+# Fixed user -> scenario map (design 5.5, functional users only): the golden set must know
+# which user has what. Users 8-15 stay without a scenario as plain functional users.
+scenarios:
+  - {user_id: 1, type: subscription_changes}
+  - {user_id: 2, type: job_change}
+  - {user_id: 3, type: recent_signup}
+  - {user_id: 4, type: zero_category}
+  - {user_id: 5, type: anomalous_month}
+  - {user_id: 6, type: london_trip}
+  - {user_id: 7, type: amazon_refunds}
+
+# Statement descriptions are upper case, ASCII and truncated to this length.
+statement_max_length: 70
+# Incoming Bizum and transfers carry a sender's free text, so their line is longer. The room
+# covers the prefix, a long sender name and the longest concept below, so a canary is never cut.
+statement_max_length_by_code:
+  BIZUM_IN: 120
+  TRANSFER_IN: 240
+
+# Prompt-injection traps (design 5.6), planted in the users of the eval_adversarial split.
+# The texts are in traps.yaml; each trap is an incoming movement with a unique canary word.
+traps:
+  extra_per_user: [0, 3]          # on top of one trap of each of the five types
+  amount_eur: [1, 20]
+  bizum_concept_max_length: 35    # provisional: pending in generator-design.md section 8
+  transfer_concept_max_length: 140   # SEPA transfer concept
+  canary_prefix: CNR              # canary = prefix + 3-digit user id + random letters/digits
+  canary_random_length: 4
+
+# City weights, roughly by population.
+cities:
+  Madrid: 0.30
+  Barcelona: 0.20
+  Valencia: 0.10
+  Sevilla: 0.08
+  Alicante: 0.07
+  Zaragoza: 0.07
+  Málaga: 0.07
+  Bilbao: 0.06
+  Valladolid: 0.05
+
+# Relative purchase intensity, Monday to Sunday (normalised to mean 1 when used).
+weekday_weights: [0.9, 0.9, 0.9, 1.0, 1.3, 1.5, 1.2]
+
+# Probability that a card purchase is booked 0, 1, 2 or 3 days after the operation.
+card_delay_weights: [0.4, 0.3, 0.2, 0.1]
+
+# Month factors (January to December) by category group (normalised to mean 1).
+seasonality:
+  Compras: [1.3, 0.9, 0.9, 1.0, 1.0, 1.0, 1.3, 0.9, 1.1, 1.0, 1.3, 1.6]
+  Ocio y viajes: [0.8, 0.8, 1.0, 1.1, 1.0, 1.2, 1.5, 1.8, 1.1, 0.9, 0.9, 1.4]
+
+archetypes:
+  young_professional:
+    weight: 1
+    annual_net_income_eur: [22000, 38000]   # paid in 14 instalments
+    rent_share: [0.25, 0.35]                # of net monthly income
+    pay_day: [25, 28]
+    rent_day: [1, 5]
+    subscriptions: [0, 3]
+    # Monthly budget by category, as a share of net monthly income. Top-down
+    # calibration: income -> budget -> purchases that consume it.
+    category_budget_share:
+      Supermercados: 0.10
+      Restaurantes y bares: 0.07
+      Comida a domicilio: 0.03
+      Transporte público: 0.02
+      Taxi y VTC: 0.01
+      Ropa y calzado: 0.04
+      Electrónica: 0.02
+      Hogar y bricolaje: 0.01
+      Compras online: 0.04
+      Ocio y cultura: 0.03
+      Viajes y alojamiento: 0.04
+      Farmacia: 0.01
+      Cuidado personal: 0.015
+
+# Card payments in a foreign currency (design 5.3). The daily rate of each currency is a mean-
+# reverting random walk drawn once for everybody from the global stream. A rate is units of the
+# currency per 1 EUR, applied on the day of the operation: amount_eur = amount / rate.
+fx:
+  currencies:
+    GBP: {base: 0.86, daily_sigma: 0.003, reversion: 0.02}
+    USD: {base: 1.08, daily_sigma: 0.004, reversion: 0.02}
+    CHF: {base: 0.95, daily_sigma: 0.003, reversion: 0.02}
+  fee_rate: 0.0175     # a separate FEE movement per foreign-currency card payment
+  fee_min_eur: 0.50
+
+# Refunds of card purchases (design 5.4). Subscriptions are never refunded.
+refunds:
+  default_probability: 0.005
+  probability_by_category:
+    Supermercados: 0.0
+    Ropa y calzado: 0.12
+    Compras online: 0.10
+    Electrónica: 0.05
+    Hogar y bricolaje: 0.03
+  total_share: 0.8                # the rest are partial
+  partial_fraction: [0.3, 0.8]    # share of the purchase a partial refund returns
+  delay_days: [3, 30]             # days from the purchase to the refund
+
+# A savings account (design 5.1 and 5.4) for part of the users: the ones who can afford to save get
+# one with probability account_probability. A transfer goes to it each month after the pay, and now
+# and then a part of the balance comes back. Each transfer is two movements, one on each account.
+savings:
+  account_probability: 0.6
+  min_capacity_eur: 150
+  share_of_capacity: [0.3, 0.8]
+  rounding_eur: 25
+  min_transfer_eur: 50
+  delay_days: [1, 3]
+  return_probability: 0.08
+  return_share: [0.3, 0.9]
+  min_return_eur: 300

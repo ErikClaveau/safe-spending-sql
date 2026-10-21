@@ -166,12 +166,15 @@ Volumen inicial: 100 usuarios (20 de evaluación y 80 de población).
 - Patrones de importe: supermercados con céntimos; Bizum y transferencias a menudo redondos; cajeros en múltiplos de 10 o 20; suscripciones con precio fijo; luz estacional.
 - Tipos de cambio sintéticos: serie diaria por divisa (GBP, USD, CHF) generada como paseo aleatorio con semilla alrededor de valores realistas.
 - Algunas compras en divisa llevan una comisión de cambio separada (`FEE`).
+- **Implementación (2026-10-15).** `exchange_rate` son unidades de divisa por 1 EUR y se aplica a la fecha de la operación (`value_date`): `amount_eur = amount / exchange_rate`, redondeado half-even. Cada divisa tiene su propio flujo aleatorio, así que su serie no depende de las demás ni de la fecha de fin. La comisión es un movimiento `FEE` aparte (1,75 % del importe en euros, mínimo 0,50 €), sin comercio. De momento solo paga en divisa el escenario de Londres; las compras en divisa de la población base llegan con los arquetipos.
 
 ### 5.4 Casos especiales
 
 - **Devoluciones.** Probabilidad según categoría (alta en ropa y compras online, media en electrónica, casi nula en supermercados). Mayoritariamente totales, algunas parciales. Llegan entre 3 y 30 días después de la compra, con el mismo comercio. Nunca de compras anteriores al periodo ni posteriores a la fecha de referencia. Algunas cruzan de mes.
+- **Implementación de las devoluciones (2026-10-15).** Se sortean cuatro números por cada compra reembolsable, sea cual sea el resultado, para que una devolución no desplace el sorteo de las siguientes. Las suscripciones no se devuelven. Cada devolución enlaza con su compra (`tx_labels.refund_of_tx_id`) y, si un escenario elimina la compra, la devolución se elimina con ella.
 - **Comisiones:** mantenimiento trimestral en algunas cuentas, cambio de divisa y cajeros fuera de red.
 - **Traspasos internos:** traspaso mensual a la cuenta de ahorro tras la nómina, con sus dos movimientos, y alguna vuelta ocasional.
+- **Implementación de los traspasos (2026-10-15).** La cuenta de ahorro (`user_id * 10 + 2`) existe para los usuarios cuya capacidad de ahorro (renta menos alquiler, recibos, suscripciones y presupuesto de gasto) supera un mínimo y que salen en el sorteo; el traspaso mensual es una parte de esa capacidad, redondeada. Cada traspaso son dos movimientos (`TRANSFER_OUT` y `TRANSFER_IN`) el mismo día, por el mismo importe y apuntando cada uno a la cuenta del otro. El saldo de ahorro se sigue mes a mes y una devolución solo sale de un saldo suficiente, así que nunca es negativo. Se calcula después de los escenarios, a partir de las nóminas que el usuario realmente tiene.
 - **Bizum:** frecuencia por arquetipo, con patrones como dividir cenas.
 - **Duplicados legítimos:** movimientos idénticos el mismo día y en el mismo comercio.
 
@@ -209,6 +212,7 @@ Cada escenario es un **inyector**: recibe el contexto del usuario, parámetros y
 - Nunca se itera sobre un `set` de strings sin ordenar, porque su orden cambia entre ejecuciones.
 - Versiones de dependencias fijadas con lockfile (Faker y numpy incluidas).
 - **Los datos no se versionan en el repositorio;** sí la configuración y el manifiesto. Un test de CI regenera el dataset y compara los hashes con el manifiesto. Un cambio intencionado exige subir `dataset_version` y regenerar el manifiesto.
+  - **Implementado (2026-10-21):** el manifiesto del dataset oficial está en `dataset/manifest.json` y `tests/generator/test_reference_manifest.py` regenera el dataset y compara versión, semilla, hash de la configuración y filas y SHA-256 de cada fichero. Tras un cambio intencionado: subir `dataset_version` y ejecutar `uv run safe-spending-generate --update-reference-manifest`. Todavía no hay runner de CI que lo ejecute. Los bytes de Parquet dependen de la versión fijada de pyarrow.
 
 ### 6.2 Validación del realismo
 
@@ -260,6 +264,6 @@ perfiles → recurrentes → compras → casos especiales → inyectores (escena
 
 - [ ] ADR-008: qué fecha expone `fecha` y formalización del puerto `Clock`.
 - [ ] Verificar el convenio de signo de `transactionAmount` y la equivalencia ISO 20022 de cada `tx_code` en NextGenPSD2.
-- [ ] Confirmar la longitud máxima del concepto de Bizum.
+- [ ] Confirmar la longitud máxima del concepto de Bizum. (Provisional: 35 caracteres en `config.yaml`, `traps.bizum_concept_max_length`; las plantillas de trampas de Bizum están escritas para ese límite.)
 - [ ] Obtener el reparto del gasto por grupos de la Encuesta de Presupuestos Familiares para la calibración.
 - [ ] Fijar los rangos numéricos de cada arquetipo durante la implementación.

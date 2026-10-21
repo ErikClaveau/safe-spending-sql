@@ -94,7 +94,7 @@ La simplicidad operativa de DuckDB es su ventaja real, pero aquí pesa poco: Doc
 ## Próximos pasos
 
 1. [ ] Añadir PostgreSQL a `docker-compose.yml` con versión fijada (≥ 15).
-2. [ ] Laboratorio de RLS: dos usuarios, una política, e intentos deliberados de romperla (propietario, vista sin `security_invoker`, `SET` sin `LOCAL`, variable sin fijar).
+2. [x] Laboratorio de RLS (hecho el 2026-10-05, ver ADR-002): dos usuarios, una política, e intentos deliberados de romperla (propietario, vista sin `security_invoker`, `SET` sin `LOCAL`, variable sin fijar).
 3. [ ] Redactar el ADR-002 a partir de los resultados del laboratorio.
 4. [ ] Configurar el service container de Postgres en GitHub Actions.
 5. [ ] Eliminar DuckDB de la tabla de puertos y del stack en la documentación del proyecto.

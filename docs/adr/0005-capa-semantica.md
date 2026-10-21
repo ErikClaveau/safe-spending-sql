@@ -119,10 +119,10 @@ La capa semántica traslada complejidad del LLM a SQL escrito y probado por una 
 
 ## Próximos pasos
 
-1. [ ] Renombrar a inglés las columnas de las tablas base en el modelo de datos.
-2. [ ] Implementar `v_movimientos`, `v_gastos` y `v_ingresos` con `security_invoker = true` y sus `COMMENT ON`.
-3. [ ] Tests de SQL de las reglas de negocio: devoluciones restan, traspasos internos excluidos, invariante de pertenencia a exactamente una vista y conversión a euros.
-4. [ ] Crear `docs/data-dictionary.md` y el test de CI que verifica que todas las columnas están documentadas.
+1. [x] Renombrar a inglés las columnas de las tablas base en el modelo de datos (migración `0001`).
+2. [x] Implementar `v_movimientos`, `v_gastos` y `v_ingresos` con `security_invoker = true` y sus `COMMENT ON` (migración `0002`, 2026-10-06).
+3. [x] Tests de SQL de las reglas de negocio: devoluciones restan, traspasos internos excluidos, invariante de pertenencia a exactamente una vista y conversión a euros (`tests/db/test_semantic_views.py`).
+4. [x] Crear `docs/data-dictionary.md` y el test de CI que verifica que todas las columnas están documentadas (en ambos sentidos: nada sin documentar y nada documentado que ya no exista).
 5. [ ] Implementar el `SchemaProvider` por introspección, con las listas cerradas de categorías.
 6. [ ] Añadir la versión del esquema semántico a los metadatos de experimentos y a las trazas.
 
@@ -136,3 +136,11 @@ Al diseñar la taxonomía de categorías del generador se detectó una ambigüed
 - `v_ingresos` incluye todos los abonos no internos excepto las devoluciones.
 - Los traspasos internos se identifican por `counterparty_account_id` y son los únicos movimientos fuera de ambas vistas.
 - Se añade el invariante de pertenencia a exactamente una vista, verificado en CI.
+
+### 2026-10-06: decisiones de implementación de la migración `0002`
+
+- **El signo de `amount_eur` lo fija el tipo de operación**, con una restricción `CHECK` en `transactions` (`transactions_sign_matches_tx_code`): `CARD_PURCHASE`, `DIRECT_DEBIT`, `TRANSFER_OUT`, `BIZUM_OUT`, `FEE` y `ATM_WITHDRAWAL` son negativos; `CARD_REFUND`, `TRANSFER_IN`, `BIZUM_IN` y `SALARY` son positivos; el cero es imposible. Es lo que garantiza en la base de datos que todo movimiento no interno cae en exactamente una vista. El generador debe respetarla.
+- **`v_gastos` y `v_ingresos` llevan `gasto_original` e `ingreso_original`** (con la misma convención de signo que su columna en euros) en lugar de `importe_original`, para que la convención de signo siga leyéndose en el nombre de cada columna de importe. `v_movimientos` mantiene `importe_original` con signo natural.
+- **`medio_pago`** se calcula con la función `medio_pago_de(tx_code)`, fuente única para las tres vistas. `app_reader` solo tiene `EXECUTE` sobre ella.
+- **`cuenta`** muestra el código de país, asteriscos y los 4 últimos dígitos del IBAN.
+- **`fecha`** es `booking_date`, provisionalmente hasta ADR-008.

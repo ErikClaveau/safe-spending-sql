@@ -1,0 +1,23 @@
+# Two-level taxonomy (design 4.1). Names are Spanish: they are values the LLM sees
+# (ADR-005). category_id is assigned from the order below, starting at 1.
+groups:
+  - name: Vivienda
+    categories: [Alquiler, Hipoteca, Suministros, Internet y telefonía]
+  - name: Alimentación
+    categories: [Supermercados, Restaurantes y bares, Comida a domicilio]
+  - name: Transporte
+    categories: [Combustible, Transporte público, Taxi y VTC, Parking y peajes]
+  - name: Compras
+    categories: [Ropa y calzado, Electrónica, Hogar y bricolaje, Compras online]
+  - name: Ocio y viajes
+    categories: [Suscripciones digitales, Ocio y cultura, Viajes y alojamiento, Deporte]
+  - name: Salud y cuidado personal
+    categories: [Farmacia, Salud, Cuidado personal]
+  - name: Finanzas
+    categories: [Comisiones, Seguros, Impuestos y tasas]
+  - name: Otros gastos
+    categories: [Bizum y transferencias enviadas, Retiradas de efectivo, Otros gastos]
+  - name: Ingresos
+    categories: [Nómina, Bizum y transferencias recibidas, Otros ingresos]
+  - name: Interno
+    categories: [Traspasos entre cuentas propias]
