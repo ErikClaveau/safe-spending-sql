@@ -83,22 +83,14 @@ def matches_allowing_extra_columns(
 ) -> bool:
     """True when some choice of `actual`'s columns, in some order, answers like `expected`.
 
-    A model that adds a column nobody asked for (a difference, a percentage) still gave the right
-    answer, so extra columns do not count against it. Rows must still match exactly: this never
-    forgives a different number of rows or a wrong value in a requested column.
+    A model that adds a column nobody asked for (a difference, a percentage), or lists the same columns in
+    another order, still gave the right answer, so neither counts against it. Rows must still match
+    exactly: this never forgives a different number of rows or a wrong value in a requested column.
     """
     width = len(expected.columns)
     available = len(actual.columns)
 
-    if available < width:
-        return False
-    if available == width:
-        return matches(
-            expected=expected,
-            actual=actual,
-            ordered=ordered
-        )
-    if perm(available, width) > MAX_COLUMN_CHOICES:
+    if available < width or perm(available, width) > MAX_COLUMN_CHOICES:
         return False
 
     for picked in permutations(range(available), width):

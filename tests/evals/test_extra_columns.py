@@ -60,3 +60,18 @@ def test_an_absurd_number_of_extra_columns_is_not_searched():
     wide = table(tuple(str(i) for i in range(30)))
 
     assert not matches_allowing_extra_columns(table(("0", "1", "2", "3", "4")), wide, ordered=False)
+
+
+def test_the_same_columns_in_another_order_are_right_leniently_and_wrong_strictly():
+    expected = table(("1777.98", "1391.28"))
+    actual = table(("1391.28", "1777.98"))
+
+    assert not matches(expected, actual, ordered=False)
+    assert matches_allowing_extra_columns(expected, actual, ordered=False)
+
+
+def test_reordering_columns_never_mixes_the_rows():
+    expected = table(("a", "1"), ("b", "2"))
+
+    assert matches_allowing_extra_columns(expected, table(("1", "a"), ("2", "b")), ordered=False)
+    assert not matches_allowing_extra_columns(expected, table(("2", "a"), ("1", "b")), ordered=False)

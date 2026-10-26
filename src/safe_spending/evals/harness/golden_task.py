@@ -42,7 +42,8 @@ RESULT_KEY = "assistant_result"
 def golden_set(
         model: str = DEFAULT_MODEL,
         rebuild: bool = True,
-        split: str = "all"
+        split: str = "all",
+        prompt_version: str = PROMPT_VERSION
 ) -> Task:
     golden = load_golden_set()
     test_ids = load_test_ids()
@@ -62,6 +63,7 @@ def golden_set(
             ),
             clock=FixedClock(today=golden.reference_date),
             max_attempts=MAX_ATTEMPTS,
+            prompt_version=prompt_version,
         ),
         validator=SqlglotSQLValidator(),
         executor=PostgresQueryExecutor(dbname=GOLDEN_DATABASE),
@@ -107,7 +109,7 @@ def golden_set(
             effort=EFFORT,
             refusal_fallback=False,
             max_attempts=MAX_ATTEMPTS,
-            prompt_version=PROMPT_VERSION,
+            prompt_version=prompt_version,
             schema_version=schema_provider.get_schema().version,
             dataset_version=golden.dataset_version,
         ).model_dump(),

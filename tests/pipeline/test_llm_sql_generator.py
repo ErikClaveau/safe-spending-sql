@@ -182,3 +182,34 @@ def test_the_prompt_has_the_date_the_views_and_the_closed_categories():
     assert "- Alimentación: Supermercados, Restaurantes y bares" in prompt
     assert "- Transporte: Gasolina" in prompt
     assert "$" not in prompt
+
+
+def test_every_prompt_version_stays_loadable_and_none_is_edited_in_place():
+    prompts = {v: render_system_prompt(SCHEMA, TODAY, version=v) for v in ("v1", "v2", "v3")}
+
+    assert len(set(prompts.values())) == 3
+    assert "COALESCE" not in prompts["v1"]  # v1 is what the baseline and round 1 ran with
+    assert PROMPT_VERSION == "v3" and render_system_prompt(SCHEMA, TODAY) == prompts["v3"]
+
+
+def test_prompt_v3_adds_the_coalesce_and_default_period_rules_and_leaves_out_the_columns_rule():
+    v3 = render_system_prompt(SCHEMA, TODAY, version="v3")
+    v2 = render_system_prompt(SCHEMA, TODAY, version="v2")
+
+    assert "COALESCE(SUM(...), 0)" in v3 and "todo el historial" in v3
+    assert "Devuelve solo las columnas que la pregunta pide" in v2  # tried in round 2, it lowered accuracy
+    assert "Devuelve solo las columnas" not in v3
+
+
+def test_an_unknown_prompt_version_is_refused():
+    with pytest.raises(ValueError, match="unknown prompt version"):
+        render_system_prompt(SCHEMA, TODAY, version="v9")
+
+
+def test_the_version_the_generator_used_is_recorded_in_the_result():
+    sql_generator, llm, _ = generator(good(), prompt_version="v1")
+
+    result = sql_generator.generate(QUESTION)
+
+    assert result.prompt_version == "v1"
+    assert llm.requests[0].system == render_system_prompt(SCHEMA, TODAY, version="v1")

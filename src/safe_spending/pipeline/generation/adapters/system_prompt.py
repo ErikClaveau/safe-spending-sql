@@ -1,27 +1,37 @@
 """The generator's system prompt: a versioned Spanish template filled with the live schema.
 
-Edit `prompts/system_v1.md` for wording changes that keep the same shape. Any change to the
-text that can alter results needs a new `PROMPT_VERSION` (and a new file if the old one must
-stay reproducible), because every trace and eval log records it (plan sections 9.3 and 10).
+A prompt version is a file, `prompts/system_vN.md`, and is never edited once a run has used it: a change
+that can alter results is a new file and a new `PROMPT_VERSION`, because every trace and eval log records
+it (plan sections 9.3 and 10). Older versions stay loadable so a run can be repeated or compared.
 """
 
 from datetime import date
+from functools import cache
 from itertools import groupby
 from pathlib import Path
 from string import Template
 
 from safe_spending.pipeline.schema import SemanticSchema, ViewDoc
 
-PROMPT_VERSION = "v1"
+PROMPT_VERSION = "v3"
+PROMPTS = Path(__file__).parent / "prompts"
 
-_TEMPLATE = Template((Path(__file__).parent / "prompts" / f"system_{PROMPT_VERSION}.md").read_text(encoding="utf-8"))
+
+@cache
+def _template(version: str) -> Template:
+    path = PROMPTS / f"system_{version}.md"
+    if not path.is_file():
+        raise ValueError(f"unknown prompt version {version!r}")
+
+    return Template(path.read_text(encoding="utf-8"))
 
 
 def render_system_prompt(
         schema: SemanticSchema,
-        today: date
+        today: date,
+        version: str = PROMPT_VERSION
 ) -> str:
-    return _TEMPLATE.substitute(
+    return _template(version=version).substitute(
         today=today.isoformat(),
         schema="\n\n".join(_render_view(view) for view in schema.views),
         categories=_render_categories(schema),

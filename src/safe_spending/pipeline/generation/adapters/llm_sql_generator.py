@@ -24,7 +24,8 @@ class LLMSQLGenerator(SQLGenerator):
             llm: LLMProvider,
             clock: Clock,
             *,
-            max_attempts: int = 3
+            max_attempts: int = 3,
+            prompt_version: str = PROMPT_VERSION
     ) -> None:
         if max_attempts < 1:
             raise ValueError("max_attempts must be at least 1")
@@ -33,6 +34,7 @@ class LLMSQLGenerator(SQLGenerator):
         self._llm = llm
         self._clock = clock
         self._max_attempts = max_attempts
+        self._prompt_version = prompt_version
         self._schema: SemanticSchema | None = None
 
     def generate(
@@ -45,7 +47,8 @@ class LLMSQLGenerator(SQLGenerator):
         schema = self._schema_of_the_database()
         system = render_system_prompt(
             schema=schema,
-            today=self._clock.today()
+            today=self._clock.today(),
+            version=self._prompt_version
         )
         messages = [
             LLMMessage(
@@ -74,7 +77,7 @@ class LLMSQLGenerator(SQLGenerator):
         return GenerationResult(
             response=attempts[-1].response,
             attempts=tuple(attempts),
-            prompt_version=PROMPT_VERSION,
+            prompt_version=self._prompt_version,
             schema_version=schema.version,
         )
 
