@@ -1,0 +1,33 @@
+# Golden set v0: the held-out (test) questions. Everything else is dev.
+#
+# Derived mechanically by `derive_test_ids` in src/safe_spending/evals/golden/splits.py: within each
+# category, in id order, every third question. Frozen: adding questions means a new set, not editing
+# this file. tests/evals/test_splits.py checks the file still equals the rule.
+
+test:
+  - GS-003
+  - GS-006
+  - GS-009
+  - GS-012
+  - GS-015
+  - GS-018
+  - GS-023
+  - GS-026
+  - GS-031
+  - GS-034
+  - GS-039
+  - GS-042
+  - GS-047
+  - GS-050
+  - GS-055
+  - GS-058
+  - GS-061
+  - GS-064
+  - GS-068
+  - GS-072
+  - GS-076
+  - GS-080
+  - GS-084
+  - GS-086
+  - GS-087
+  - GS-088

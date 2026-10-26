@@ -17,6 +17,7 @@ dependencies = [
     "pyyaml>=6.0.3",
     "pydantic>=2.13.5",
     "sqlglot>=30.23.0",
+    "anthropic>=1.17.0",
 ]
 
 [project.scripts]
@@ -27,6 +28,7 @@ safe-spending-golden = "safe_spending.evals.golden.cli:main"
 
 [dependency-groups]
 dev = [
+    "inspect-ai>=0.3.283",
     "pytest>=8",
 ]
 

@@ -21,6 +21,20 @@ Ya existen el golden set v0 (`evals/golden/`, 90 preguntas con SQL de referencia
 - Cada ejecución se ancla al commit SHA, el modelo, la versión del prompt, la del dataset y la del esquema semántico (plan §9.3), en los metadatos del log.
 - Los scorers de seguridad (fuga, canarios) son código propio con acceso a Postgres; Inspect no impone cómo se puntúa.
 
+## Protocolo de medición
+
+Fijado el 2026-10-22 al construir la primera tarea:
+
+- **Métrica principal, tolerante con columnas extra.** Una respuesta es correcta si algún subconjunto ordenado de sus columnas coincide con el resultado de referencia (mismas filas, tolerancia de un céntimo). Una columna que nadie pidió, como una diferencia o un porcentaje, no penaliza. Se publica además la **métrica estricta** (columnas exactamente iguales, como en los benchmarks), para poder comparar con la literatura y ver cuánto se pierde por forma.
+- **Comportamientos.** `refuse` exige un rechazo; `clarify` acepta una pregunta o una respuesta que explicite su supuesto (hasta que el ADR-010 decida); `no_data` exige una consulta cuyo resultado esté vacío o a cero, o un rechazo que no invente datos.
+- **Equivalencias de valor.** Un mes escrito `2026-03-01` equivale a `2026-03`, y en la métrica tolerante las mismas columnas en otro orden no penalizan. Estas reglas se afinaron el 2026-10-26 tras ver los fallos del baseline, por lo que se publican el baseline original y el re-puntuado (`docs/iteraciones-evals.md`).
+- **Partición.** 26 de las 90 preguntas son de test, elegidas por regla mecánica y congeladas (`evals/golden/splits_v0.yaml`). Las decisiones de qué cambiar se toman solo con los fallos de dev; el test se puntúa y publica en cada ronda. Ver `docs/golden-set.md`.
+- **Un solo modelo por medición.** En las evals el *fallback* ante rechazos del proveedor está desactivado: todas las respuestas vienen del modelo medido y un rechazo cuenta como fallo de generación. En la aplicación y la demo sigue activado.
+- **Umbral.** La puerta de CI exige un acierto tolerante del **85 %** sobre las 90 preguntas (dev y test juntas), inclusive. El objetivo inicial se mantiene tras el baseline (90,0 % en la semana 3). Con 90 preguntas el error estándar es de unos 3 puntos, así que el margen es estrecho y una caída aislada de una o dos preguntas puede ser ruido: se repite con `--epochs 3` antes de buscar una causa.
+- **La puerta.** `tests/evals/test_eval_gate.py` lee el log más reciente de la tarea que cubra todas las preguntas (una ejecución con `--limit` no cuenta) y falla si no alcanza el umbral, si se hizo con otro prompt o con otra versión del dataset que las del código, o si tenía el *fallback* activado. No llama al modelo. Sin ningún log se omite, para que `pytest` funcione en un clon limpio; con `REQUIRE_EVAL_LOG=1` (en CI) la falta de log es un fallo, para que la puerta no pase por no ejecutarse.
+- **Logs.** Cada ejecución deja un log de Inspect en `logs/` (ignorado por Git) con el SQL, el resultado y la traza completa de cada pregunta. Los resultados que se publiquen se resumen en el README y en la tabla de iteraciones.
+- **Ejecución:** `uv run --env-file .env inspect eval src/safe_spending/evals/harness/golden_task.py --max-samples 4`.
+
 ## Opciones consideradas
 
 | Opción | Métricas custom | Historial y comparación | Visor de errores | Esfuerzo esta semana | Portfolio |
@@ -47,6 +61,6 @@ pytest propio puede registrar métricas en JSON, pero historial, comparación y 
 
 ## Próximos pasos
 
-1. [ ] Añadir `inspect-ai` como dependencia de desarrollo.
-2. [ ] Tarea Inspect sobre `golden_v0.yaml` con scorer de execution accuracy.
-3. [ ] Test pytest que lee el resultado y aplica los umbrales.
+1. [x] Añadir `inspect-ai` como dependencia de desarrollo.
+2. [x] Tarea Inspect sobre `golden_v0.yaml` con scorer de execution accuracy.
+3. [x] Test pytest que lee el resultado y aplica los umbrales (`tests/evals/test_eval_gate.py`). Pendiente: los umbrales de fuga y canarios, cuando exista el set adversarial (semana 4).

@@ -4,23 +4,24 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project state
 
-Text-to-SQL assistant over **synthetic** personal banking data (Postgres RLS isolation, traceable numbers, published eval harness). The repository is in **week 2 of 6** (plan §14): the design is done and the database layer is being built. What exists:
+Text-to-SQL assistant over **synthetic** personal banking data (Postgres RLS isolation, traceable numbers, published eval harness). The repository is in **week 3 of 6** (plan §14): the database layer and the golden set v0 exist and the end-to-end pipeline is being built. What exists:
 
 - `docs/` — design, written in Spanish (keep new docs/ADRs in Spanish unless the language decision in the plan §14 week 6 changes it).
 - `lab/rls/` — disposable RLS lab that validated ADR-002 (its own Postgres, own tests). Not part of the product.
 - `src/safe_spending/db/` — the real database layer: `settings`, `bootstrap`, `config_checks`, `sqlfile` and the Alembic environment with migrations `0001` (base tables, RLS, grants) and `0002` (semantic views, `COMMENT ON`, sign `CHECK`).
 - `src/safe_spending/generator/` — the synthetic data generator, slice 3 of 4 in progress (one archetype, recurring payments and card purchases, Parquet + manifest, and `scenarios/`: seven scripted scenarios for users 1-7; `traps/`: injection traps with canary words for the adversarial users 16-20; `fx/`: exchange-rate series and fee; refunds in `events/refunds.py`; `savings/`: the optional savings account and the transfers between a user's own accounts). `src/safe_spending/db/loader.py` loads it into Postgres as `app_loader`. `src/safe_spending/clock/` is the `Clock` port (`FixedClock`, `SystemClock`). `src/safe_spending/schemas/` (manifest contract) and `tables.py` (operational vs label table names) are shared by generator and loader on purpose: neither may import the other.
 - `src/safe_spending/db/query.py` — `run_as_user`: runs a query as one user with the ADR-002 semantics (read-only transaction, `set_config` first, identity confirmed); the base of the week-3 `QueryExecutor`.
-- `evals/golden/` and `src/safe_spending/evals/golden/` — the golden set v0 (90 Spanish questions with reference SQL) and its tooling; see `docs/golden-set.md`.
-- `tests/db/`, `tests/generator/`, `tests/evals/` — tests of the real schema, the loader, the generator and the golden set.
+- `src/safe_spending/pipeline/` — the assistant's pipeline (week 3, in progress), one package per capability (`schema/`: `SchemaProvider` and its Postgres adapter; `llm/`: `LLMProvider` and the Anthropic adapter, ADR-004; `generation/`: `SQLGenerator`, its structured response and the versioned Spanish system prompt, ADR-006; `validation/`: `SQLValidator` over sqlglot, whose rules the golden set reuses; `execution/`: `QueryExecutor` over `run_as_user`; `assistant/`: `Assistant.ask(user_id, question)` chains generate, validate and execute and returns every stage; if the validator rejects the SQL or the database errors, the model sees the reason and writes it again once, through the same validator and RLS, `max_corrections`; a timeout is not corrected). Answer synthesis, the numeric check, `TraceSink` and the API are not built yet. **Layout inside a capability:** `schemas/` (Pydantic models), `ports/` (Protocols), `adapters/` (implementations); create a subpackage only when it has something to hold. Each `__init__.py` re-exports its classes, so callers import from the capability (`from safe_spending.pipeline.schema import SemanticSchema`).
+- `evals/golden/` and `src/safe_spending/evals/golden/` — the golden set v0 (90 Spanish questions with reference SQL) and its tooling; see `docs/golden-set.md`. 26 questions are a frozen, mechanically derived **test** split (`splits_v0.yaml`): decide what to change from dev failures only. `src/safe_spending/evals/harness/` is the Inspect AI task and the pure grading rules; `docs/iteraciones-evals.md` is the table of eval runs, one row per change.
+- `tests/db/`, `tests/generator/`, `tests/evals/`, `tests/pipeline/` — tests of the real schema, the loader, the generator, the golden set and the pipeline (the pipeline tests use fakes and never call the API).
 
-Generator work still to do (design in `docs/generator-design.md`): all archetypes, calendar/holidays, regular Bizum, baseline foreign-currency purchases (rest of slice 3); statistical report and dataset card (slice 4). The reproducibility gate exists as a test (`dataset/manifest.json`); there is no CI runner yet. Not built yet: the adversarial sets, the rest of the 150-200 functional questions, the pipeline (LLM, sqlglot validator, executor, API) and CI.
+Generator work still to do (design in `docs/generator-design.md`): all archetypes, calendar/holidays, regular Bizum, baseline foreign-currency purchases (rest of slice 3); statistical report and dataset card (slice 4). The reproducibility gate exists as a test (`dataset/manifest.json`); there is no CI runner yet. Not built yet: the adversarial sets, the rest of the 150-200 functional questions, the leak/canary thresholds of the eval gate (they need the adversarial set), answer synthesis, tracing, the API and CI.
 
 Code, comments and test names are in **English**; `docs/` and the Spanish semantic layer (view/column names, `COMMENT ON` for the LLM) are in Spanish.
 
 Source of truth, in order:
 - `docs/proyecto-1-asistente-gastos-final.md` — living project plan (goals, architecture, security, evals, ADR status table §12, changelog §18). Update its changelog and the ADR table whenever a decision changes.
-- `docs/adr/` — ADR-001 (Postgres only), ADR-002 (isolation via RLS only, **accepted**, with lab results), ADR-005 (semantic views layer). ADR-003/004/006/007/008/009/010 are still pending.
+- `docs/adr/` — ADR-001 (Postgres only), ADR-002 (isolation via RLS only, **accepted**, with lab results), ADR-005 (semantic views layer). ADR-003 (Inspect AI to measure, pytest as the CI gate), ADR-004 (frontier model via API behind `LLMProvider`) and ADR-006 (tool use + Pydantic) are accepted. ADR-007/008/009/010 are still pending.
 - `docs/generator-design.md` — synthetic data generator design.
 
 ## Commands
@@ -38,12 +39,17 @@ uv run safe-spending-generate            # dataset -> data/dataset (Parquet + ma
 uv run safe-spending-load --reset        # verify manifest, then load as app_loader (--reset empties the tables first)
 uv run safe-spending-generate --update-reference-manifest   # after an intended data change: refresh dataset/manifest.json (bump dataset_version first)
 uv run safe-spending-golden show GS-001 # run golden questions on a reference database built from scratch (also: refresh, check; --no-rebuild reuses it)
+uv run --env-file .env inspect eval src/safe_spending/evals/harness/golden_task.py --max-samples 4   # golden set vs the real assistant (calls the API, ~$1; --limit N for a few questions); logs in logs/
+uv run inspect view                      # browse those logs at http://127.0.0.1:7575
+REQUIRE_EVAL_LOG=1 uv run pytest tests/evals/test_eval_gate.py   # the CI gate: latest full run must reach 85% (skipped without a log unless REQUIRE_EVAL_LOG=1)
 
 docker compose -f lab/rls/docker-compose.yml up -d --wait   # RLS lab Postgres
 uv run pytest lab/rls/tests              # lab suite (separate Postgres; not run by plain `pytest`)
 ```
 
 Connection settings come from env vars with development defaults (`DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_ADMIN_USER`, `DB_ADMIN_PASSWORD`, `DB_<ROLE>_PASSWORD`); see `src/safe_spending/db/settings.py`. The dev and lab compose files must not publish the same host port: check `DB_PORT` before running the real suite, or it can hit the lab's Postgres and alter its roles (same role names).
+
+Secrets and overrides live in a git-ignored `.env` (template: `.env.example`, e.g. `ANTHROPIC_API_KEY`). There is no dotenv code: load it with `uv run --env-file .env <command>` or `UV_ENV_FILE=.env`. Tests never need the API key; they use a fake client.
 
 ## Database conventions
 
@@ -79,4 +85,4 @@ Request flow: classify intent → generate SQL → static validation (sqlglot) �
 
 ## Eval targets (release gates)
 
-Cross-user leak rate = 0 and successful injection (canary) rate = 0 on the adversarial set; 100% of answer numbers traceable to SQL results; execution accuracy ≥ 85% (to be re-set after the week-3 baseline). Planned CI: tests + smoke evals (~30 questions) + full adversarial set block merges.
+Cross-user leak rate = 0 and successful injection (canary) rate = 0 on the adversarial set; 100% of answer numbers traceable to SQL results; execution accuracy ≥ 85% (kept after the week-3 baseline of 90.0%; enforced by `tests/evals/test_eval_gate.py`, which reads the latest full Inspect log). Planned CI: tests + smoke evals (~30 questions) + full adversarial set block merges.

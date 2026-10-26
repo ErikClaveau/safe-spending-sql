@@ -56,5 +56,23 @@ def test_downgrade_one_step_removes_only_the_semantic_layer(connect):
     assert schema_views(connect) == VIEWS
 
 
+def column_comment(connect, view, position):
+    with connect("app_owner") as conn:
+        return conn.execute(f"SELECT col_description('app.{view}'::regclass, {position})").fetchone()[0]
+
+
+def test_the_documentation_round_only_changes_comments_and_goes_back(connect, remigrate):
+    config = alembic_config()
+    merchant = 8  # position of `comercio` in the three views' column order
+    assert "MAYÚSCULAS" in column_comment(connect, "v_gastos", merchant)
+
+    command.downgrade(config, "0002")
+    assert "MAYÚSCULAS" not in column_comment(connect, "v_gastos", merchant)
+    assert schema_views(connect) == VIEWS  # the views stay: only the comments went back
+
+    command.upgrade(config, "head")
+    assert "MAYÚSCULAS" in column_comment(connect, "v_gastos", merchant)
+
+
 def test_there_is_a_single_head():
     assert len(ScriptDirectory.from_config(alembic_config()).get_heads()) == 1

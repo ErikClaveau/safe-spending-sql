@@ -542,7 +542,6 @@ questions:
     category: filtro_compuesto
     difficulty: media
     behavior: answer
-    ordered: true
     reference_sql: |
       SELECT fecha, comercio, categoria, gasto_eur
       FROM v_gastos
