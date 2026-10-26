@@ -65,8 +65,15 @@ def test_no_data_means_a_query_that_finds_nothing(actual, ok):
     assert verdict.lenient is ok and verdict.strict is ok
 
 
-def test_no_data_answered_with_a_refusal_is_wrong():
-    assert not grade(Behavior.NO_DATA, False, table(("0",)), AssistantOutcome.REFUSED, None, None).lenient
+def test_no_data_declined_without_inventing_is_right():
+    verdict = grade(Behavior.NO_DATA, False, table(("0",)), AssistantOutcome.REFUSED, None, "Aún no ha llegado.")
+
+    assert verdict.lenient and verdict.strict and verdict.detail == "declined without inventing data"
+
+
+def test_no_data_with_a_clarification_or_a_failure_is_wrong():
+    for outcome in (AssistantOutcome.CLARIFY, AssistantOutcome.REJECTED, AssistantOutcome.GENERATION_FAILED):
+        assert not grade(Behavior.NO_DATA, False, table(("0",)), outcome, None, None).lenient
 
 
 def test_clarify_accepts_a_question_or_a_stated_assumption():

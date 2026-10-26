@@ -3,7 +3,8 @@
 Pure functions over plain values, so the rules can be tested without Inspect, a database or a model.
 
 - answer: the assistant answered and the result matches the reference result.
-- no_data: it answered and the result is empty or all zeros / nulls, nothing invented.
+- no_data: it answered and the result is empty or all zeros / nulls, or it declined without inventing
+  anything (a refusal such as "I cannot predict next month" is a correct way to say there is no data).
 - clarify: it asked, or it answered stating the assumption it made (the golden set accepts both
   until ADR-010 decides what to do with ambiguity; `detail` says which one happened).
 - refuse: it declined.
@@ -84,6 +85,12 @@ def _grade_no_data(
         outcome: AssistantOutcome,
         table: ResultTable | None
 ) -> Grade:
+    if outcome is AssistantOutcome.REFUSED:
+        return Grade(
+            lenient=True,
+            strict=True,
+            detail="declined without inventing data"
+        )
     if outcome is not AssistantOutcome.ANSWERED:
         return Grade(
             lenient=False,

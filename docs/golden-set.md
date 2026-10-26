@@ -44,6 +44,12 @@ Quedan fuera de v0, y son trabajo de las semanas siguientes: el set adversarial 
 - **0 € no es "no hay datos".** Un periodo con movimientos pero sin gasto en una categoría da 0; un periodo sin ningún movimiento no tiene datos.
 - **El SQL de referencia cumple las mismas reglas que el asistente:** una sola sentencia `SELECT`, solo `v_movimientos`, `v_gastos` o `v_ingresos`, con `LIMIT`, sin filtrar nunca por usuario (el aislamiento lo hace RLS) y sin funciones peligrosas.
 
+## Partición dev / test
+
+Mejorar prompts y documentación contra las mismas preguntas con las que se mide hace subir la cifra por ajustarse a esas preguntas. Por eso 26 de las 90 (`evals/golden/splits_v0.yaml`) son **test**: se puntúan en cada ronda y se publican junto al resto, pero ningún cambio se decide por una pregunta de test. Las 64 restantes son **dev**.
+
+La regla es mecánica, para que nadie elija: dentro de cada categoría, en orden de id, una de cada tres preguntas (la 3.ª, la 6.ª, la 9.ª…). `derive_test_ids` la implementa y `tests/evals/test_splits.py` comprueba que el fichero congelado sigue siendo exactamente lo que da la regla. Ampliar el set significa un set nuevo (v1), no editar este fichero. `-T split=dev` o `-T split=test` ejecutan solo una parte, y cada log desglosa el acierto por partición.
+
 ## Cada pregunta
 
 `id` (GS-001…, estable y nunca reutilizado), `question`, `user_id`, `category`, `difficulty`, `behavior` (`answer`, `clarify`, `no_data` o `refuse`), `reference_sql`, `ordered` (si el orden de las filas forma parte de la respuesta), `scenario_id` y `notes`. La categoría fija el comportamiento: ambigua es `clarify`, sin datos es `no_data` y fuera de dominio es `refuse`; el resto responden. Las de `no_data` llevan un SQL que cuenta movimientos en el periodo y debe dar 0.

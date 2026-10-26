@@ -1,11 +1,13 @@
 """A query result in a form that can be written to JSON and compared (design 9.1: execution accuracy).
 
 The comparison ignores the order of the rows unless the question says it matters, ignores column
-names (a model may alias differently), and tolerates a cent in numbers. `matches` is strict about
+names (a model may alias differently), tolerates a cent in numbers and takes a month written as
+'2026-03' and as its first day, '2026-03-01', to be the same. `matches` is strict about
 the columns (execution accuracy as benchmarks define it); `matches_allowing_extra_columns` also
 accepts a result that has the requested columns plus others.
 """
 
+import re
 from datetime import date, datetime
 from decimal import Decimal
 from itertools import permutations
@@ -16,6 +18,8 @@ from pydantic import BaseModel, ConfigDict, Field
 from safe_spending.db.query_result import QueryResult
 
 TOLERANCE = Decimal("0.01")
+MONTH = re.compile(r"^\d{4}-\d{2}$")
+FIRST_OF_MONTH = re.compile(r"^\d{4}-\d{2}-01$")
 MAX_COLUMN_CHOICES = 10_000  # beyond this many ways to pick the columns, extra columns are not searched
 
 
@@ -115,9 +119,28 @@ def matches_allowing_extra_columns(
 def _same(a, b) -> bool:
     if a is None or b is None:
         return a is b
+    if _is_month_and_its_first_day(
+            month=a,
+            first_day=b
+    ) or _is_month_and_its_first_day(
+        month=b,
+        first_day=a
+    ):
+        return True
     if _is_number(value=a) and _is_number(value=b):
         return abs(Decimal(str(a)) - Decimal(str(b))) <= TOLERANCE
     return a == b
+
+
+def _is_month_and_its_first_day(month, first_day) -> bool:
+    """'2026-03' and '2026-03-01' name the same month: a model may truncate with `date_trunc` where the
+    reference formats with `to_char`. Only the first of the month, so a real date is never a month."""
+    return (
+            isinstance(month, str) and isinstance(first_day, str)
+            and MONTH.match(month) is not None
+            and FIRST_OF_MONTH.match(first_day) is not None
+            and first_day.startswith(month)
+    )
 
 
 def _is_number(value) -> bool:

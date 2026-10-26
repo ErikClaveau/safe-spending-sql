@@ -4,7 +4,8 @@ Run it from the repo root (the reference database is rebuilt first, so it needs 
 
     uv run --env-file .env inspect eval src/safe_spending/evals/harness/golden_task.py --max-samples 4
 
-`--limit 8` runs a few questions. Task options go with `-T`, e.g. `-T model=claude-haiku-5-5`. The model is
+`--limit 8` runs a few questions; `-T split=dev` or `-T split=test` runs only that part (see
+`evals/golden/splits.py`). Task options go with `-T`, e.g. `-T model=claude-haiku-5-5`. The model is
 ours (`LLMProvider`), not Inspect's, which is why the task pins `mockllm/model` as Inspect's model.
 
 Refusal fallback is off here (ADR-003 protocol): every answer comes from the one model under test, and a
@@ -20,7 +21,7 @@ from inspect_ai.scorer import SampleScore, Value
 from inspect_ai.solver import Generate, TaskState, solver
 
 from safe_spending.clock import FixedClock
-from safe_spending.evals.golden import ResultTable, load_golden_set, read_expected
+from safe_spending.evals.golden import ResultTable, Split, load_golden_set, load_test_ids, read_expected, split_of
 from safe_spending.evals.golden.dataset import GOLDEN_DATABASE, build_reference_database
 from safe_spending.evals.harness.grading import grade
 from safe_spending.evals.harness.schemas import AssistantRun, SampleMetadata, TaskMetadata
@@ -40,9 +41,11 @@ RESULT_KEY = "assistant_result"
 @task
 def golden_set(
         model: str = DEFAULT_MODEL,
-        rebuild: bool = True
+        rebuild: bool = True,
+        split: str = "all"
 ) -> Task:
     golden = load_golden_set()
+    test_ids = load_test_ids()
     expected = read_expected()
     if rebuild:
         build_reference_database()
@@ -72,6 +75,10 @@ def golden_set(
             metadata=SampleMetadata(
                 user_id=q.user_id,
                 category=q.category,
+                split=split_of(
+                    question_id=q.id,
+                    test_ids=test_ids
+                ),
                 difficulty=q.difficulty,
                 behavior=q.behavior,
                 ordered=q.ordered,
@@ -79,6 +86,7 @@ def golden_set(
             ).model_dump(mode="json"),
         )
         for q in golden.questions
+        if split == "all" or split_of(question_id=q.id, test_ids=test_ids) == Split(split)
     ]
 
     return Task(
@@ -145,7 +153,7 @@ def _grade(state: TaskState):
     )
 
 
-@scorer(metrics=[accuracy(), stderr(), grouped(accuracy(), "category")])
+@scorer(metrics=[accuracy(), stderr(), grouped(accuracy(), "category"), grouped(accuracy(), "split")])
 def execution_accuracy():
     """Headline: the right answer, extra columns forgiven; or the right behavior (clarify, no data, refuse)."""
 
@@ -164,7 +172,7 @@ def execution_accuracy():
     return score
 
 
-@scorer(metrics=[accuracy(), stderr()])
+@scorer(metrics=[accuracy(), stderr(), grouped(accuracy(), "split")])
 def execution_accuracy_strict():
     """The same with the columns exactly as the reference has them, as benchmarks define it."""
 
