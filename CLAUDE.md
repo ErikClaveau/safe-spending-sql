@@ -15,7 +15,7 @@ Text-to-SQL assistant over **synthetic** personal banking data (Postgres RLS iso
 - `evals/golden/` and `src/safe_spending/evals/golden/` — the golden set v0 (90 Spanish questions with reference SQL) and its tooling; see `docs/golden-set.md`. 26 questions are a frozen, mechanically derived **test** split (`splits_v0.yaml`): decide what to change from dev failures only. `src/safe_spending/evals/harness/` is the Inspect AI task and the pure grading rules; `docs/iteraciones-evals.md` is the table of eval runs, one row per change.
 - `tests/db/`, `tests/generator/`, `tests/evals/`, `tests/pipeline/` — tests of the real schema, the loader, the generator, the golden set and the pipeline (the pipeline tests use fakes and never call the API).
 
-Generator work still to do (design in `docs/generator-design.md`): all archetypes, calendar/holidays, regular Bizum, baseline foreign-currency purchases (rest of slice 3); statistical report and dataset card (slice 4). The reproducibility gate exists as a test (`dataset/manifest.json`); there is no CI runner yet. Not built yet: the adversarial sets, the rest of the 150-200 functional questions, the pytest gate that reads the eval log (ADR-003), answer synthesis, tracing, the API and CI.
+Generator work still to do (design in `docs/generator-design.md`): all archetypes, calendar/holidays, regular Bizum, baseline foreign-currency purchases (rest of slice 3); statistical report and dataset card (slice 4). The reproducibility gate exists as a test (`dataset/manifest.json`); there is no CI runner yet. Not built yet: the adversarial sets, the rest of the 150-200 functional questions, the leak/canary thresholds of the eval gate (they need the adversarial set), answer synthesis, tracing, the API and CI.
 
 Code, comments and test names are in **English**; `docs/` and the Spanish semantic layer (view/column names, `COMMENT ON` for the LLM) are in Spanish.
 
@@ -40,6 +40,8 @@ uv run safe-spending-load --reset        # verify manifest, then load as app_loa
 uv run safe-spending-generate --update-reference-manifest   # after an intended data change: refresh dataset/manifest.json (bump dataset_version first)
 uv run safe-spending-golden show GS-001 # run golden questions on a reference database built from scratch (also: refresh, check; --no-rebuild reuses it)
 uv run --env-file .env inspect eval src/safe_spending/evals/harness/golden_task.py --max-samples 4   # golden set vs the real assistant (calls the API, ~$1; --limit N for a few questions); logs in logs/
+uv run inspect view                      # browse those logs at http://127.0.0.1:7575
+REQUIRE_EVAL_LOG=1 uv run pytest tests/evals/test_eval_gate.py   # the CI gate: latest full run must reach 85% (skipped without a log unless REQUIRE_EVAL_LOG=1)
 
 docker compose -f lab/rls/docker-compose.yml up -d --wait   # RLS lab Postgres
 uv run pytest lab/rls/tests              # lab suite (separate Postgres; not run by plain `pytest`)
@@ -83,4 +85,4 @@ Request flow: classify intent → generate SQL → static validation (sqlglot) �
 
 ## Eval targets (release gates)
 
-Cross-user leak rate = 0 and successful injection (canary) rate = 0 on the adversarial set; 100% of answer numbers traceable to SQL results; execution accuracy ≥ 85% (to be re-set after the week-3 baseline). Planned CI: tests + smoke evals (~30 questions) + full adversarial set block merges.
+Cross-user leak rate = 0 and successful injection (canary) rate = 0 on the adversarial set; 100% of answer numbers traceable to SQL results; execution accuracy ≥ 85% (kept after the week-3 baseline of 90.0%; enforced by `tests/evals/test_eval_gate.py`, which reads the latest full Inspect log). Planned CI: tests + smoke evals (~30 questions) + full adversarial set block merges.
