@@ -222,3 +222,6 @@ __marimo__/
 # Custom rules for this project
 data/
 *.parquet
+
+# Inspect AI eval logs (ADR-003)
+logs/

@@ -39,6 +39,7 @@ uv run safe-spending-generate            # dataset -> data/dataset (Parquet + ma
 uv run safe-spending-load --reset        # verify manifest, then load as app_loader (--reset empties the tables first)
 uv run safe-spending-generate --update-reference-manifest   # after an intended data change: refresh dataset/manifest.json (bump dataset_version first)
 uv run safe-spending-golden show GS-001 # run golden questions on a reference database built from scratch (also: refresh, check; --no-rebuild reuses it)
+uv run --env-file .env inspect eval src/safe_spending/evals/harness/golden_task.py --max-samples 4   # golden set vs the real assistant (calls the API, ~$1; --limit N for a few questions); logs in logs/
 
 docker compose -f lab/rls/docker-compose.yml up -d --wait   # RLS lab Postgres
 uv run pytest lab/rls/tests              # lab suite (separate Postgres; not run by plain `pytest`)

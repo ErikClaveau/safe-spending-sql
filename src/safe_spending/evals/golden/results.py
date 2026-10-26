@@ -1,17 +1,22 @@
 """A query result in a form that can be written to JSON and compared (design 9.1: execution accuracy).
 
 The comparison ignores the order of the rows unless the question says it matters, ignores column
-names (a model may alias differently), and tolerates a cent in numbers.
+names (a model may alias differently), and tolerates a cent in numbers. `matches` is strict about
+the columns (execution accuracy as benchmarks define it); `matches_allowing_extra_columns` also
+accepts a result that has the requested columns plus others.
 """
 
 from datetime import date, datetime
 from decimal import Decimal
+from itertools import permutations
+from math import perm
 
 from pydantic import BaseModel, ConfigDict, Field
 
 from safe_spending.db.query_result import QueryResult
 
 TOLERANCE = Decimal("0.01")
+MAX_COLUMN_CHOICES = 10_000  # beyond this many ways to pick the columns, extra columns are not searched
 
 
 class ResultTable(BaseModel):
@@ -66,10 +71,51 @@ def matches(
     return all(_same(a, b) for row_a, row_b in zip(left, right) for a, b in zip(row_a, row_b))
 
 
+def matches_allowing_extra_columns(
+        expected: ResultTable,
+        actual: ResultTable,
+        *,
+        ordered: bool
+) -> bool:
+    """True when some choice of `actual`'s columns, in some order, answers like `expected`.
+
+    A model that adds a column nobody asked for (a difference, a percentage) still gave the right
+    answer, so extra columns do not count against it. Rows must still match exactly: this never
+    forgives a different number of rows or a wrong value in a requested column.
+    """
+    width = len(expected.columns)
+    available = len(actual.columns)
+
+    if available < width:
+        return False
+    if available == width:
+        return matches(
+            expected=expected,
+            actual=actual,
+            ordered=ordered
+        )
+    if perm(available, width) > MAX_COLUMN_CHOICES:
+        return False
+
+    for picked in permutations(range(available), width):
+        projection = ResultTable(
+            columns=tuple(actual.columns[i] for i in picked),
+            rows=tuple(tuple(row[i] for i in picked) for row in actual.rows),
+        )
+        if matches(
+                expected=expected,
+                actual=projection,
+                ordered=ordered
+        ):
+            return True
+
+    return False
+
+
 def _same(a, b) -> bool:
     if a is None or b is None:
         return a is b
-    if _is_number(a) and _is_number(b):
+    if _is_number(value=a) and _is_number(value=b):
         return abs(Decimal(str(a)) - Decimal(str(b))) <= TOLERANCE
     return a == b
 

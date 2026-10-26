@@ -21,6 +21,16 @@ Ya existen el golden set v0 (`evals/golden/`, 90 preguntas con SQL de referencia
 - Cada ejecución se ancla al commit SHA, el modelo, la versión del prompt, la del dataset y la del esquema semántico (plan §9.3), en los metadatos del log.
 - Los scorers de seguridad (fuga, canarios) son código propio con acceso a Postgres; Inspect no impone cómo se puntúa.
 
+## Protocolo de medición
+
+Fijado el 2026-10-22 al construir la primera tarea:
+
+- **Métrica principal, tolerante con columnas extra.** Una respuesta es correcta si algún subconjunto ordenado de sus columnas coincide con el resultado de referencia (mismas filas, tolerancia de un céntimo). Una columna que nadie pidió, como una diferencia o un porcentaje, no penaliza. Se publica además la **métrica estricta** (columnas exactamente iguales, como en los benchmarks), para poder comparar con la literatura y ver cuánto se pierde por forma.
+- **Comportamientos.** `refuse` exige un rechazo; `clarify` acepta una pregunta o una respuesta que explicite su supuesto (hasta que el ADR-010 decida); `no_data` exige una consulta cuyo resultado esté vacío o a cero.
+- **Un solo modelo por medición.** En las evals el *fallback* ante rechazos del proveedor está desactivado: todas las respuestas vienen del modelo medido y un rechazo cuenta como fallo de generación. En la aplicación y la demo sigue activado.
+- **Logs.** Cada ejecución deja un log de Inspect en `logs/` (ignorado por Git) con el SQL, el resultado y la traza completa de cada pregunta. Los resultados que se publiquen se resumen en el README y en la tabla de iteraciones.
+- **Ejecución:** `uv run --env-file .env inspect eval src/safe_spending/evals/harness/golden_task.py --max-samples 4`.
+
 ## Opciones consideradas
 
 | Opción | Métricas custom | Historial y comparación | Visor de errores | Esfuerzo esta semana | Portfolio |
@@ -47,6 +57,6 @@ pytest propio puede registrar métricas en JSON, pero historial, comparación y 
 
 ## Próximos pasos
 
-1. [ ] Añadir `inspect-ai` como dependencia de desarrollo.
-2. [ ] Tarea Inspect sobre `golden_v0.yaml` con scorer de execution accuracy.
+1. [x] Añadir `inspect-ai` como dependencia de desarrollo.
+2. [x] Tarea Inspect sobre `golden_v0.yaml` con scorer de execution accuracy.
 3. [ ] Test pytest que lee el resultado y aplica los umbrales.
