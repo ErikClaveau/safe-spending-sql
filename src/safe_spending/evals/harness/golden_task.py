@@ -5,7 +5,7 @@ Run it from the repo root (the reference database is rebuilt first, so it needs 
     uv run --env-file .env inspect eval src/safe_spending/evals/harness/golden_task.py --max-samples 4
 
 `--limit 8` runs a few questions; `-T split=dev` or `-T split=test` runs only that part (see
-`evals/golden/splits.py`). Task options go with `-T`, e.g. `-T model=claude-haiku-5-5`. The model is
+`evals/golden/splits.py`). `-T max_corrections=0` turns self-correction off. Task options go with `-T`, e.g. `-T model=claude-haiku-5-5`. The model is
 ours (`LLMProvider`), not Inspect's, which is why the task pins `mockllm/model` as Inspect's model.
 
 Refusal fallback is off here (ADR-003 protocol): every answer comes from the one model under test, and a
@@ -43,7 +43,8 @@ def golden_set(
         model: str = DEFAULT_MODEL,
         rebuild: bool = True,
         split: str = "all",
-        prompt_version: str = PROMPT_VERSION
+        prompt_version: str = PROMPT_VERSION,
+        max_corrections: int = 1
 ) -> Task:
     golden = load_golden_set()
     test_ids = load_test_ids()
@@ -67,6 +68,7 @@ def golden_set(
         ),
         validator=SqlglotSQLValidator(),
         executor=PostgresQueryExecutor(dbname=GOLDEN_DATABASE),
+        max_corrections=max_corrections,
     )
 
     samples = [
@@ -109,6 +111,7 @@ def golden_set(
             effort=EFFORT,
             refusal_fallback=False,
             max_attempts=MAX_ATTEMPTS,
+            max_corrections=max_corrections,
             prompt_version=prompt_version,
             schema_version=schema_provider.get_schema().version,
             dataset_version=golden.dataset_version,
@@ -168,7 +171,10 @@ def execution_accuracy():
             value=CORRECT if verdict.lenient else INCORRECT,
             answer=state.output.completion,
             explanation=verdict.detail,
-            metadata={"outcome": _observed(state).outcome.value},
+            metadata={
+                "outcome": _observed(state).outcome.value,
+                "corrections": _observed(state).corrections
+            },
         )
 
     return score

@@ -7,7 +7,14 @@ from decimal import Decimal
 import pytest
 
 from safe_spending.clock import FixedClock
-from safe_spending.pipeline.generation import PROMPT_VERSION, LLMSQLGenerator, render_system_prompt
+from safe_spending.pipeline.generation import (
+    PROMPT_VERSION,
+    Correction,
+    CorrectionKind,
+    GeneratorResponse,
+    LLMSQLGenerator,
+    render_system_prompt,
+)
 from safe_spending.pipeline.llm import LLMResponse, LLMRole, TokenUsage
 from safe_spending.pipeline.schema import CategoryDoc, ColumnDoc, SemanticSchema, ViewDoc
 
@@ -213,3 +220,34 @@ def test_the_version_the_generator_used_is_recorded_in_the_result():
 
     assert result.prompt_version == "v1"
     assert llm.requests[0].system == render_system_prompt(SCHEMA, TODAY, version="v1")
+
+
+def test_earlier_answers_and_what_was_wrong_with_them_are_replayed_as_turns():
+    sql_generator, llm, _ = generator(good())
+    rejected = Correction(
+        response=GeneratorResponse(action="query", sql="SELECT * FROM transactions LIMIT 1"),
+        kind=CorrectionKind.REJECTED,
+        detail="table transactions is not a semantic view",
+    )
+    failed = Correction(
+        response=GeneratorResponse(action="query", sql="SELECT nope FROM v_gastos LIMIT 1"),
+        kind=CorrectionKind.EXECUTION_ERROR,
+        detail='column "nope" does not exist',
+    )
+
+    sql_generator.generate(QUESTION, corrections=(rejected, failed))
+
+    messages = llm.requests[0].messages
+    assert [m.role for m in messages] == [LLMRole.USER, LLMRole.ASSISTANT, LLMRole.USER, LLMRole.ASSISTANT, LLMRole.USER]
+    assert messages[0].content == QUESTION
+    assert json.loads(messages[1].content) == {"action": "query", "sql": "SELECT * FROM transactions LIMIT 1"}
+    assert "se rechazó antes de ejecutarse" in messages[2].content and "not a semantic view" in messages[2].content
+    assert "La base de datos dio este error" in messages[4].content and '"nope"' in messages[4].content
+
+
+def test_no_corrections_means_just_the_question():
+    sql_generator, llm, _ = generator(good())
+
+    sql_generator.generate(QUESTION)
+
+    assert [m.content for m in llm.requests[0].messages] == [QUESTION]

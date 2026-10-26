@@ -10,6 +10,7 @@ Todas las filas se muestran con la **métrica vigente (M3)**, volviendo a puntua
 | 1 | Documentación de las vistas (migración `0003`) | 87,8 % (79/90) | 89,1 % | 84,6 % | 63,3 % | $1,13 |
 | 2 | Prompt v2: `COALESCE`, periodo por defecto y solo las columnas pedidas | 83,3 % (75/90) | 84,4 % | 80,8 % | 74,4 % | $1,15 |
 | 3 | Prompt v3: como v2 sin la regla de las columnas | **90,0 % (81/90)** | 89,1 % (57/64) | 92,3 % (24/26) | 70,0 % | $1,16 |
+| 4 | Autocorrección: una pasada si el validador o la base de datos rechazan el SQL | 90,0 % (81/90) | 89,1 % (57/64) | 92,3 % (24/26) | 70,0 % | $1,17 |
 
 ## Versiones de la métrica
 
@@ -27,16 +28,18 @@ M2 y M3 se decidieron viendo resultados, por eso se conservan las cifras anterio
 
 **3. Prompt v3.** La v1 con solo las dos reglas buenas. Arregla GS-011 y 012 (el `COALESCE`, un mecanismo claro). GS-055 pasa a correcta sin que ninguna regla lo explique: ruido. Rompe GS-043 porque el validador rechaza `generate_series(...)` en el `FROM`, una función de tabla inofensiva (ver abajo).
 
+**4. Autocorrección.** Si el validador rechaza el SQL, o la base de datos devuelve un error, el modelo ve su respuesta anterior y el motivo y la escribe de nuevo (máximo una vez; un *timeout* no se corrige). El SQL corregido pasa por el mismo validador y la misma ejecución bajo RLS. En las 90 preguntas solo una necesitó corrección: GS-043, que el modelo había escrito con `generate_series(...)` en el `FROM` y el validador rechazaba; al corregirla, acierta. El total no cambia porque GS-053 (Londres) pasó de correcta a «pide las fechas», que es ruido (en la fila 1 había pasado al revés). Coste: $0,01 más en total. Se mide con `-T max_corrections=0` frente al valor por defecto.
+
 ## Ruido y contaminación
 
 Cada fila es una ejecución y el modelo no es determinista: el error estándar es de unos 3 puntos sobre 90 preguntas, y cada fila tiene entre uno y tres cambios que son ruido (GS-053 en la fila 1, GS-055 en la 3). Las diferencias de uno o dos puntos no son concluyentes. Para fiarse de una mejora pequeña hay que repetir con `--epochs 3`.
 
 El análisis de fallos del baseline se hizo viendo las 90 preguntas, también las de test, y la ronda 1 se diseñó con esa información. Desde la ronda 2 las decisiones se toman solo con fallos de dev.
 
-## Fallos que quedan en la fila 3 (9)
+## Fallos que quedan en la fila 4 (9)
 
 - **Recurrentes (GS-046, 049, 050, 052, 086).** La referencia espera una forma concreta (tramos de precio, historial completo) que la pregunta no define.
 - **GS-033.** Total conjunto frente a desglose por comercio.
 - **GS-041.** Un porcentaje redondeado a dos decimales frente a uno.
-- **GS-043.** El validador rechaza `generate_series(...)`. Se repite en las filas 2 y 3, y es el candidato claro: permitir esa función de tabla, o dejar que el modelo corrija su SQL cuando el validador lo rechaza.
+- **GS-053** (Londres) alterna entre correcta y «pide las fechas» de una ejecución a otra.
 - **GS-056.** Pide las fechas del viaje a Londres.

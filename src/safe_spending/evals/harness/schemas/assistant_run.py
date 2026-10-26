@@ -18,6 +18,7 @@ class AssistantRun(BaseModel):
     sql: str | None
     cost_usd: float | None = Field(description="None when the model has no known price.")
     latency_s: float
+    corrections: int = Field(default=0, description="How many times the SQL was written again (self-correction).")
     trace: dict = Field(description="The whole AssistantResult as JSON, for the log.")
 
     @classmethod
@@ -33,5 +34,6 @@ class AssistantRun(BaseModel):
             sql=result.sql,
             cost_usd=float(result.cost_usd) if result.cost_usd is not None else None,
             latency_s=result.latency_s,
+            corrections=len(result.corrections),
             trace=result.model_dump(mode="json"),
         )

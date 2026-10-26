@@ -13,6 +13,7 @@ class TaskMetadata(BaseModel):
     effort: str
     refusal_fallback: bool
     max_attempts: int
+    max_corrections: int
     prompt_version: str
     schema_version: str
     dataset_version: str
