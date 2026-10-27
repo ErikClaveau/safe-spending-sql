@@ -14,6 +14,7 @@ from safe_spending.pipeline.execution import PostgresQueryExecutor
 from safe_spending.pipeline.generation import LLMSQLGenerator
 from safe_spending.pipeline.llm import AnthropicLLMProvider
 from safe_spending.pipeline.schema import PostgresSchemaProvider
+from safe_spending.pipeline.synthesis import LLMAnswerSynthesizer
 from safe_spending.pipeline.validation import SqlglotSQLValidator
 
 DEFAULT_MODEL = "claude-sonnet-5-5"
@@ -26,26 +27,32 @@ def build_assistant(
         model: str,
         prompt_version: str,
         max_corrections: int,
-        reference_date: date
+        reference_date: date,
+        synthesize: bool = False
 ) -> tuple[Assistant, str]:
-    """The assistant over the reference database, and the version of the schema it shows the model."""
+    """The assistant over the reference database, and the version of the schema it shows the model.
+
+    With `synthesize` it also writes the answer text from the result (same model and protocol as the SQL)."""
     schema_provider = PostgresSchemaProvider(dbname=GOLDEN_DATABASE)
+    llm = AnthropicLLMProvider(
+        client=Anthropic(),
+        model=model,
+        effort=EFFORT,
+        refusal_fallback=False
+    )
+    clock = FixedClock(today=reference_date)
     assistant = Assistant(
         generator=LLMSQLGenerator(
             schema_provider=schema_provider,
-            llm=AnthropicLLMProvider(
-                client=Anthropic(),
-                model=model,
-                effort=EFFORT,
-                refusal_fallback=False
-            ),
-            clock=FixedClock(today=reference_date),
+            llm=llm,
+            clock=clock,
             max_attempts=MAX_ATTEMPTS,
             prompt_version=prompt_version,
         ),
         validator=SqlglotSQLValidator(),
         executor=PostgresQueryExecutor(dbname=GOLDEN_DATABASE),
         max_corrections=max_corrections,
+        synthesizer=LLMAnswerSynthesizer(llm=llm, clock=clock) if synthesize else None,
     )
 
     return assistant, schema_provider.get_schema().version
