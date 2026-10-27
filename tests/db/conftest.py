@@ -24,6 +24,7 @@ def reset_database() -> None:
     A downgrade only removes what migrations created, so objects that a test adds on
     purpose (extra tables, views) would survive it.
     """
+    bootstrap(TEST_DB)  # a clean server (CI) has no test database yet to drop the schema from
     with settings.connect(settings.ADMIN_USER, TEST_DB, autocommit=True) as admin:
         admin.execute(f"DROP SCHEMA IF EXISTS {settings.SCHEMA} CASCADE")
     bootstrap(TEST_DB)
