@@ -16,6 +16,7 @@ from safe_spending.pipeline.llm import AnthropicLLMProvider
 from safe_spending.pipeline.schema import PostgresSchemaProvider
 from safe_spending.pipeline.synthesis import LLMAnswerSynthesizer
 from safe_spending.pipeline.validation import SqlglotSQLValidator
+from safe_spending.pipeline.verification import ResultNumberVerifier
 
 DEFAULT_MODEL = "claude-sonnet-5-5"
 EFFORT = "medium"
@@ -32,7 +33,8 @@ def build_assistant(
 ) -> tuple[Assistant, str]:
     """The assistant over the reference database, and the version of the schema it shows the model.
 
-    With `synthesize` it also writes the answer text from the result (same model and protocol as the SQL)."""
+    With `synthesize` it also writes the answer text from the result (same model and protocol as the SQL),
+    and every number in that text is checked against the result."""
     schema_provider = PostgresSchemaProvider(dbname=GOLDEN_DATABASE)
     llm = AnthropicLLMProvider(
         client=Anthropic(),
@@ -52,7 +54,11 @@ def build_assistant(
         validator=SqlglotSQLValidator(),
         executor=PostgresQueryExecutor(dbname=GOLDEN_DATABASE),
         max_corrections=max_corrections,
-        synthesizer=LLMAnswerSynthesizer(llm=llm, clock=clock) if synthesize else None,
+        synthesizer=LLMAnswerSynthesizer(
+            llm=llm,
+            clock=clock,
+            verifier=ResultNumberVerifier()
+        ) if synthesize else None,
     )
 
     return assistant, schema_provider.get_schema().version

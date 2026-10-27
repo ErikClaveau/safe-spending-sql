@@ -4,6 +4,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_valida
 
 from safe_spending.pipeline.llm.schemas import LLMResponse
 from safe_spending.pipeline.synthesis.schemas.synthesis_response import SynthesisResponse
+from safe_spending.pipeline.verification import NumericVerification
 
 
 class SynthesisAttempt(BaseModel):
@@ -18,6 +19,26 @@ class SynthesisAttempt(BaseModel):
     response: SynthesisResponse | None = Field(default=None, description="Set when `raw` validated.")
     error: str | None = Field(default=None, description="Set when it did not: why, for the trace and the retry.")
     llm: LLMResponse
+    verification: NumericVerification | None = Field(
+        default=None,
+        description="The numeric check of a well-formed answer; if it failed, `response` is None and `raw` keeps it."
+    )
+
+    def checked(
+            self,
+            verification: NumericVerification
+    ) -> Self:
+        """This attempt after the numeric check: the answer stands only if every number was traced."""
+        if verification.ok:
+            return self.model_copy(update={"verification": verification})
+
+        untraced = ", ".join(verification.untraced)
+        return self.model_copy(update={
+            "response": None,
+            "error": f"estas cifras no aparecen en el resultado de la consulta: {untraced}. Usa solo cifras "
+                     f"del resultado, sin contar filas ni calcular nada; si te falta una cifra, no la des.",
+            "verification": verification,
+        })
 
     @classmethod
     def from_llm(

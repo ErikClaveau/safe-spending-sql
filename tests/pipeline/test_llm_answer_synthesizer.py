@@ -10,6 +10,7 @@ from safe_spending.clock import FixedClock
 from safe_spending.db.query_result import QueryResult
 from safe_spending.pipeline.llm import LLMResponse, LLMRole, TokenUsage
 from safe_spending.pipeline.synthesis import PROMPT_VERSION, LLMAnswerSynthesizer, render_system_prompt
+from safe_spending.pipeline.verification import ResultNumberVerifier
 
 TODAY = date(2026, 9, 15)
 SQL = "SELECT fecha, importe_eur, concepto FROM v_movimientos LIMIT 5"
@@ -169,3 +170,34 @@ def test_limits_must_be_positive():
         synthesizer(ScriptedLLM(), max_attempts=0)
     with pytest.raises(ValueError):
         synthesizer(ScriptedLLM(), max_rows=0)
+
+
+def test_an_answer_with_a_number_that_is_not_in_the_result_is_retried_with_the_figures_named():
+    llm = ScriptedLLM(good("Has tenido 28 movimientos."), good())
+
+    result = ask(synthesizer(llm, verifier=ResultNumberVerifier()))
+
+    assert result.answer == "Hoy has gastado 12,50 €."
+    first, second = result.attempts
+    assert not first.valid and first.response is None and first.verification.untraced == ("28",)
+    assert "28 movimientos" in first.raw  # what the model said stays in the trace
+    assert second.valid and second.verification.ok
+    feedback = llm.requests[1].messages[-1].content
+    assert "no aparecen en el resultado" in feedback and "28" in feedback
+
+
+def test_an_answer_that_never_gets_its_numbers_right_is_not_returned():
+    llm = ScriptedLLM(good("Son 28."), good("Son 29."))
+
+    result = ask(synthesizer(llm, verifier=ResultNumberVerifier()))
+
+    assert result.answer is None
+    assert [a.verification.untraced for a in result.attempts] == [("28",), ("29",)]
+
+
+def test_without_a_verifier_the_numbers_are_not_checked():
+    llm = ScriptedLLM(good("Has tenido 28 movimientos."))
+
+    result = ask(synthesizer(llm))
+
+    assert result.answer == "Has tenido 28 movimientos." and result.attempts[0].verification is None
