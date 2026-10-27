@@ -1,0 +1,55 @@
+# Level 1 of the CI (docs/ci.md): the whole test suite on every pull request. No API key, no cost.
+#
+# The eval gates of tests/evals/test_eval_gate.py are skipped here because there is no Inspect log in a
+# clean checkout; evals.yml runs them with the model and requires the logs.
+name: tests
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    services:
+      postgres:
+        image: postgres:16  # same as docker-compose.yml (ADR-001: PostgreSQL >= 15)
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 15
+
+    env:
+      DB_HOST: 127.0.0.1
+      DB_PORT: "5432"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+          enable-cache: true
+
+      - name: Install the project (the lockfile must be up to date)
+        run: uv sync --locked
+
+      - name: Test suite
+        run: uv run pytest
