@@ -12,30 +12,25 @@ Refusal fallback is off here (ADR-003 protocol): every answer comes from the one
 refusal counts as a failed generation instead of being rescued by another model.
 """
 
-import anyio
-from anthropic import Anthropic
 from inspect_ai import Task, task
 from inspect_ai.dataset import MemoryDataset, Sample
 from inspect_ai.scorer import CORRECT, INCORRECT, Score, Target, accuracy, grouped, mean, metric, scorer, stderr
 from inspect_ai.scorer import SampleScore, Value
-from inspect_ai.solver import Generate, TaskState, solver
+from inspect_ai.solver import TaskState
 
-from safe_spending.clock import FixedClock
 from safe_spending.evals.golden import ResultTable, Split, load_golden_set, load_test_ids, read_expected, split_of
-from safe_spending.evals.golden.dataset import GOLDEN_DATABASE, build_reference_database
+from safe_spending.evals.golden.dataset import build_reference_database
+from safe_spending.evals.harness.assistant_solver import (
+    DEFAULT_MODEL,
+    EFFORT,
+    MAX_ATTEMPTS,
+    build_assistant,
+    observed,
+    run_assistant,
+)
 from safe_spending.evals.harness.grading import grade
-from safe_spending.evals.harness.schemas import AssistantRun, SampleMetadata, TaskMetadata
-from safe_spending.pipeline.assistant import Assistant
-from safe_spending.pipeline.execution import PostgresQueryExecutor
-from safe_spending.pipeline.generation import PROMPT_VERSION, LLMSQLGenerator
-from safe_spending.pipeline.llm import AnthropicLLMProvider
-from safe_spending.pipeline.schema import PostgresSchemaProvider
-from safe_spending.pipeline.validation import SqlglotSQLValidator
-
-DEFAULT_MODEL = "claude-sonnet-5-5"
-EFFORT = "medium"
-MAX_ATTEMPTS = 3
-RESULT_KEY = "assistant_result"
+from safe_spending.evals.harness.schemas import SampleMetadata, TaskMetadata
+from safe_spending.pipeline.generation import PROMPT_VERSION
 
 
 @task
@@ -52,23 +47,11 @@ def golden_set(
     if rebuild:
         build_reference_database()
 
-    schema_provider = PostgresSchemaProvider(dbname=GOLDEN_DATABASE)
-    assistant = Assistant(
-        generator=LLMSQLGenerator(
-            schema_provider=schema_provider,
-            llm=AnthropicLLMProvider(
-                client=Anthropic(),
-                model=model,
-                effort=EFFORT,
-                refusal_fallback=False
-            ),
-            clock=FixedClock(today=golden.reference_date),
-            max_attempts=MAX_ATTEMPTS,
-            prompt_version=prompt_version,
-        ),
-        validator=SqlglotSQLValidator(),
-        executor=PostgresQueryExecutor(dbname=GOLDEN_DATABASE),
+    assistant, schema_version = build_assistant(
+        model=model,
+        prompt_version=prompt_version,
         max_corrections=max_corrections,
+        reference_date=golden.reference_date
     )
 
     samples = [
@@ -113,39 +96,14 @@ def golden_set(
             max_attempts=MAX_ATTEMPTS,
             max_corrections=max_corrections,
             prompt_version=prompt_version,
-            schema_version=schema_provider.get_schema().version,
+            schema_version=schema_version,
             dataset_version=golden.dataset_version,
         ).model_dump(),
     )
 
 
-@solver
-def run_assistant(assistant: Assistant):
-    async def solve(
-            state: TaskState,
-            generate: Generate
-    ) -> TaskState:
-        meta = state.metadata_as(metadata_cls=SampleMetadata)
-        result = await anyio.to_thread.run_sync(
-            assistant.ask,
-            meta.user_id,
-            state.input_text
-        )
-
-        run = AssistantRun.from_result(result=result)
-        state.metadata[RESULT_KEY] = run.model_dump(mode="json")
-        state.output.completion = result.sql or result.message or result.outcome.value
-        return state
-
-    return solve
-
-
-def _observed(state: TaskState) -> AssistantRun:
-    return AssistantRun.model_validate(obj=state.metadata[RESULT_KEY])
-
-
 def _grade(state: TaskState):
-    observed = _observed(state=state)
+    observed = observed(state=state)
     meta = state.metadata_as(metadata_cls=SampleMetadata)
 
     return grade(
@@ -172,8 +130,8 @@ def execution_accuracy():
             answer=state.output.completion,
             explanation=verdict.detail,
             metadata={
-                "outcome": _observed(state).outcome.value,
-                "corrections": _observed(state).corrections
+                "outcome": observed(state).outcome.value,
+                "corrections": observed(state).corrections
             },
         )
 
@@ -207,7 +165,7 @@ def cost_usd():
     """USD spent on the model, per question and in total. A question with no known price counts as 0."""
 
     async def score(state: TaskState, target: Target) -> Score:
-        return Score(value=_observed(state).cost_usd or 0.0)
+        return Score(value=observed(state).cost_usd or 0.0)
 
     return score
 
@@ -215,6 +173,6 @@ def cost_usd():
 @scorer(metrics=[mean()])
 def latency_s():
     async def score(state: TaskState, target: Target) -> Score:
-        return Score(value=_observed(state).latency_s)
+        return Score(value=observed(state).latency_s)
 
     return score

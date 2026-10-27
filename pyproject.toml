@@ -25,6 +25,7 @@ safe-spending-bootstrap = "safe_spending.db.bootstrap:main"
 safe-spending-generate = "safe_spending.generator.cli:main"
 safe-spending-load = "safe_spending.db.loader:main"
 safe-spending-golden = "safe_spending.evals.golden.cli:main"
+safe-spending-adversarial = "safe_spending.evals.adversarial.cli:main"
 
 [dependency-groups]
 dev = [
