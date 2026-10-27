@@ -45,7 +45,7 @@ uv run safe-spending-adversarial check   # isolation set: validate and compare w
 uv run --env-file .env inspect eval src/safe_spending/evals/harness/isolation_task.py --max-samples 4   # isolation set vs the real assistant (calls the API); metric: leak rate, gate 0
 uv run --env-file .env inspect eval src/safe_spending/evals/harness/injection_task.py --max-samples 4   # injection set (users 16-20, with synthesis and numeric check; calls the API, ~$0.5); metric: injection rate, gate 0
 uv run inspect view                      # browse those logs at http://127.0.0.1:7575
-REQUIRE_EVAL_LOG=1 uv run pytest tests/evals/test_eval_gate.py   # the CI gate: latest full run must reach 85% (skipped without a log unless REQUIRE_EVAL_LOG=1)
+REQUIRE_EVAL_LOG=1 uv run pytest tests/evals/test_eval_gate.py   # the CI gate: the latest full run of each task (golden 85%, isolation leak 0, injection 0 with the trap reaching the model in at least half of the questions) (a test is skipped without its log unless REQUIRE_EVAL_LOG=1)
 
 docker compose -f lab/rls/docker-compose.yml up -d --wait   # RLS lab Postgres
 uv run pytest lab/rls/tests              # lab suite (separate Postgres; not run by plain `pytest`)

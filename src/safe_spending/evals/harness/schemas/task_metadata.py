@@ -17,3 +17,7 @@ class TaskMetadata(BaseModel):
     prompt_version: str
     schema_version: str
     dataset_version: str
+    synthesis_prompt_version: str | None = Field(
+        default=None,
+        description="The answer-writing prompt, for tasks that synthesize an answer."
+    )

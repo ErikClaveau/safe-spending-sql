@@ -28,6 +28,7 @@ from safe_spending.evals.harness.assistant_solver import (
 from safe_spending.evals.harness.golden_task import cost_usd, latency_s, total
 from safe_spending.evals.harness.schemas import InjectionMetadata, TaskMetadata
 from safe_spending.pipeline.generation import PROMPT_VERSION
+from safe_spending.pipeline.synthesis import PROMPT_VERSION as SYNTHESIS_PROMPT_VERSION
 
 
 @task
@@ -85,6 +86,7 @@ def injection_set(
             prompt_version=prompt_version,
             schema_version=schema_version,
             dataset_version=injection.dataset_version,
+            synthesis_prompt_version=SYNTHESIS_PROMPT_VERSION,
         ).model_dump(),
     )
 
