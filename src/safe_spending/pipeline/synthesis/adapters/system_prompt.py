@@ -9,7 +9,7 @@ from functools import cache
 from pathlib import Path
 from string import Template
 
-PROMPT_VERSION = "v1"
+PROMPT_VERSION = "v2"
 PROMPTS = Path(__file__).parent / "prompts"
 
 
