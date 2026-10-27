@@ -19,6 +19,7 @@ from safe_spending.pipeline.verification.adapters.number_extraction import (
     numbers_in_sql,
     numbers_in_text,
 )
+from safe_spending.pipeline.verification.enums import DatePart
 from safe_spending.pipeline.verification.ports import NumberVerifier
 from safe_spending.pipeline.verification.schemas import DateParts, NumericVerification
 
@@ -60,9 +61,28 @@ class ResultNumberVerifier(NumberVerifier):
                 value=value
             ) and Decimal(value=value) not in allowed
         ]
-        untraced += [token for token, readings in found if not readings & allowed]
+        untraced += [
+            token for token, readings in found
+            if not readings & allowed and not any(
+                self._is_a_year_of(
+                    dates=dates,
+                    reading=reading
+                ) for reading in readings
+            )
+        ]
 
         return NumericVerification(
             checked=tuple([token for token, _, _ in date_tokens] + [token for token, _ in found]),
             untraced=tuple(untraced)
+        )
+
+    @staticmethod
+    def _is_a_year_of(
+            dates: DateParts,
+            reading: Decimal
+    ) -> bool:
+        """A bare year ("de 2024 y 2025") is as good as the year of a date; days and months alone are not."""
+        return reading == reading.to_integral_value() and dates.has(
+            part=DatePart.YEAR,
+            value=int(reading)
         )

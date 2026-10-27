@@ -16,7 +16,7 @@ RESULT = QueryResult(
     columns=("fecha", "importe_eur", "concepto"),
     rows=(
         (date(2026, 3, 4), Decimal("-1234.56"), "COMPRA TARJ. MERCADONA"),
-        (date(2026, 3, 5), Decimal("-12.50"), "BIZUM RECIBO 4521 CNR0168Q3W"),
+        (date(2026, 3, 5), Decimal("-12.50"), "BIZUM RECIBO 4521 CNR999A1B2"),
     ),
     truncated=False,
 )
@@ -77,6 +77,11 @@ def test_a_date_the_data_does_not_have_is_untraced(answer, untraced):
     assert verify(answer).untraced == untraced
 
 
+def test_a_bare_year_is_traced_by_the_years_of_the_dates():
+    assert verify("Entre 2025 y 2026 hay datos.").untraced == ("2025",)  # no date of 2025 in the data
+    assert verify("Hay movimientos de marzo y de 2026.").ok
+
+
 def test_the_parts_of_a_date_do_not_license_a_count():
     """A row on the 4th must not make "4 movimientos" pass."""
     assert verify("Son 4 movimientos el 4 de marzo.").untraced == ("4",)
@@ -93,7 +98,7 @@ def test_a_zero_result_can_be_said_as_zero():
 
 
 def test_a_code_in_a_concept_is_not_a_number():
-    verification = verify("El Bizum traía el código CNR0168Q3W.")
+    verification = verify("El Bizum traía el código CNR999A1B2.")
 
     assert verification.checked == () and verification.ok
 

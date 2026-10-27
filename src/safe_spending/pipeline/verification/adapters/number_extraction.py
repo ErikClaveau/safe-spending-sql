@@ -2,7 +2,7 @@
 
 Text is written as `1.234,56`; a lone `1.234` is ambiguous (thousands or decimals), so a token yields every
 reading it can have and counts as traced if any of them is. Signs are dropped: "has gastado 12,50 €" is the
-`-12.50` of a result. A digit run glued to letters (`CNR0168Q3W`) is part of a code, not a number.
+`-12.50` of a result. A digit run glued to letters (`CNR999A1B2`) is part of a code, not a number.
 
 Dates are kept apart. If the day, month and year of a date cell counted as plain numbers, "son 4 movimientos"
 would pass whenever a row falls on the 4th. So a date in the answer (`4 de marzo de 2026`, `2026-03-04`,
