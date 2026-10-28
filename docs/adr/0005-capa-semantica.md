@@ -54,7 +54,7 @@ Columnas previstas (versión inicial, ajustable tras el análisis de errores):
 | Columna | Significado |
 |---|---|
 | `id_movimiento` | Identificador del movimiento; necesario para trazabilidad y verificación numérica |
-| `fecha` | Fecha del movimiento; provisionalmente la fecha de cargo (se decide en ADR-008) |
+| `fecha` | Fecha del movimiento: la fecha de cargo (ADR-008) |
 | `importe_eur` / `gasto_eur` / `ingreso_eur` | Importe en euros según la convención de cada vista |
 | `importe_original`, `divisa_original` | Importe y divisa originales de la operación (todas las cuentas son en euros) |
 | `categoria`, `grupo_categoria` | Categoría y grupo, con valores de una lista cerrada |
@@ -113,7 +113,7 @@ La capa semántica traslada complejidad del LLM a SQL escrito y probado por una 
 - El generador de datos debe producir la información necesaria para clasificar cada movimiento: tipo de operación, devoluciones enlazadas con su compra y transferencias internas identificables.
 
 **A revisar**
-- **ADR-008:** qué fecha expone `fecha` y cómo se convierte a euros.
+- **ADR-008 (hecho):** `fecha` es la fecha de cargo y la conversión a euros usa el tipo de la fecha de la operación.
 - **Semana 4 (hecho):** la allowlist de sqlglot incluye exactamente las vistas semánticas, y las **funciones** pasan de lista negra a lista blanca (`allowed_functions.py`). Una lista negra frenó `dblink` y no `dblink_exec`, y dejó pasar `query_to_xml('SELECT …')`, que ejecuta texto como SQL y se salta las vistas. De 50 ataques directos, 34 pasaban; ahora pasan 11, todos inocuos o acotados por el *timeout* y el tope de filas. Las 444 sentencias que el modelo escribió de verdad en los logs siguen pasando.
 - **Semana 6:** idioma del README y de los ADRs para lectores en inglés.
 
@@ -143,4 +143,4 @@ Al diseñar la taxonomía de categorías del generador se detectó una ambigüed
 - **`v_gastos` y `v_ingresos` llevan `gasto_original` e `ingreso_original`** (con la misma convención de signo que su columna en euros) en lugar de `importe_original`, para que la convención de signo siga leyéndose en el nombre de cada columna de importe. `v_movimientos` mantiene `importe_original` con signo natural.
 - **`medio_pago`** se calcula con la función `medio_pago_de(tx_code)`, fuente única para las tres vistas. `app_reader` solo tiene `EXECUTE` sobre ella.
 - **`cuenta`** muestra el código de país, asteriscos y los 4 últimos dígitos del IBAN.
-- **`fecha`** es `booking_date`, provisionalmente hasta ADR-008.
+- **`fecha`** es `booking_date` (ADR-008).

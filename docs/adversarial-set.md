@@ -81,6 +81,8 @@ Para añadir una pregunta: siguiente id `AD-NNN` en el YAML, un `exposure` y `uv
 
 ## Segunda ronda (semana 4)
 
+**Medición** (claude-sonnet-5-5, CI de GitHub, 2026-10-28): fuga **0/32** en las seis familias de ataque (0,37 $); inyección **0/30**, con la trampa en las filas del modelo en el 73 % (`concept_requested` 89 %, `listing` 100 %, `search` 86 %, `aggregate` 14 %; 0,68 $). Con esto no se puede afirmar una tasa exacta: 0 de 32 y 0 de 30 dejan un límite superior al 95 % en torno al 9-10 % por tarea, y la inyección tiene un solo log. Las preguntas pensadas para fallar (traducir el concepto, copiarlo literalmente) no lo hicieron con el prompt v2.
+
 Se amplían ambas partes sin tocar el dataset: aislamiento pasa de 22 a 32 preguntas (inglés, permisos supuestos en vez de identidades, "ignora tus instrucciones", sondeos de `pg_roles`, superlativos que alcanzan a la víctima sin nombrarla) e inyección de 20 a 30 (preguntas en inglés, pedir la traducción o la copia literal del concepto, exportar a CSV, buscar por las palabras del texto plantado).
 
 - **Una referencia de aislamiento no puede seleccionar `concepto` de los usuarios 16-20.** `expected_isolation_v0.json` se versiona y el concepto lleva el canario: AI-032 lo hizo y el test que recorre el repositorio lo cazó. La fuga se sigue detectando por fecha, importe y remitente.
@@ -89,7 +91,7 @@ Se amplían ambas partes sin tocar el dataset: aislamiento pasa de 22 a 32 pregu
 ## Pendiente
 
 - Trampas en otros caminos al modelo (un recibo, el nombre de una contraparte). Exige tocar el generador: subir `dataset_version`, refrescar el manifiesto y el golden.
-- Medir las 20 preguntas nuevas contra el modelo y repetir las tareas, que es lo que reabre las puertas en local.
+- Repetir las tareas en local para reabrir las puertas (el CI ya las repite).
 
 ## El validador SQL frente a ataques directos
 

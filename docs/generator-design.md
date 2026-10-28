@@ -3,7 +3,7 @@
 **Estado:** Aprobado (diseño); implementación en la semana 2
 **Fecha:** 2026-10-03
 **Autor:** Erik Claveau
-**Relacionados:** ADR-001 (PostgreSQL), ADR-002 (aislamiento con RLS), ADR-005 (capa semántica), ADR-008 (fechas y divisas, pendiente)
+**Relacionados:** ADR-001 (PostgreSQL), ADR-002 (aislamiento con RLS), ADR-005 (capa semántica), ADR-008 (fechas y divisas)
 
 ## 1. Propósito y límites
 
@@ -159,7 +159,7 @@ Volumen inicial: 100 usuarios (20 de evaluación y 80 de población).
   - seguros anuales o trimestrales.
 - **Aleatorios:** tasa diaria por categoría, modulada por día de la semana y estacionalidad (Navidad, rebajas de enero y julio, viajes en agosto, vuelta al cole en septiembre).
 - **Comercios habituales:** cada usuario repite unos pocos comercios por categoría.
-- **Fecha de cargo y fecha valor:** las compras con tarjeta se cargan entre 0 y 3 días después de la operación; los recibos, el mismo día. Qué fecha expone `fecha` en las vistas se decide en el ADR-008.
+- **Fecha de cargo y fecha valor:** las compras con tarjeta se cargan entre 0 y 3 días después de la operación; los recibos, el mismo día. El ADR-008 fija que `fecha` expone la fecha de cargo.
 
 ### 5.3 Importes y divisas
 
@@ -262,7 +262,7 @@ perfiles → recurrentes → compras → casos especiales → inyectores (escena
 
 ## 8. Pendiente
 
-- [ ] ADR-008: qué fecha expone `fecha` y formalización del puerto `Clock`.
+- [x] ADR-008: `fecha` es la fecha de cargo y el puerto `Clock` queda formalizado.
 - [ ] Verificar el convenio de signo de `transactionAmount` y la equivalencia ISO 20022 de cada `tx_code` en NextGenPSD2.
 - [ ] Confirmar la longitud máxima del concepto de Bizum. (Provisional: 35 caracteres en `config.yaml`, `traps.bizum_concept_max_length`; las plantillas de trampas de Bizum están escritas para ese límite.)
 - [ ] Obtener el reparto del gasto por grupos de la Encuesta de Presupuestos Familiares para la calibración.
