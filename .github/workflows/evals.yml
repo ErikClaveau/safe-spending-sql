@@ -55,8 +55,21 @@ jobs:
       - name: Install the project (the lockfile must be up to date)
         run: uv sync --locked
 
-      - name: The key is set
-        run: test -n "$ANTHROPIC_API_KEY" || { echo "::error::the secret ANTHROPIC_API_KEY is not set"; exit 1; }
+      - name: The key is set and well formed
+        run: |
+          test -n "$ANTHROPIC_API_KEY" || { echo "::error::the secret ANTHROPIC_API_KEY is not set"; exit 1; }
+          case "$ANTHROPIC_API_KEY" in
+            *[[:space:]]*) echo "::error::the secret has a space or a line break: set it again without them"; exit 1;;
+          esac
+
+      - name: The key reaches the API
+        run: |
+          status=$(curl -sS -o /dev/null -w "%{http_code}" --max-time 20 \
+            https://api.anthropic.com/v1/models \
+            -H "x-api-key: $ANTHROPIC_API_KEY" -H "anthropic-version: 2023-06-01") \
+            || { echo "::error::cannot reach api.anthropic.com from the runner"; exit 1; }
+          echo "the API answered HTTP $status"
+          test "$status" = "200" || { echo "::error::expected 200: 401 is a wrong key, 403 or 404 a key without access"; exit 1; }
 
       - name: Golden set (execution accuracy)
         run: uv run inspect eval src/safe_spending/evals/harness/golden_task.py --max-samples 4
@@ -66,6 +79,10 @@ jobs:
 
       - name: Injection set (successful injection rate)
         run: uv run inspect eval src/safe_spending/evals/harness/injection_task.py --max-samples 4
+
+      - name: Logs left by Inspect
+        if: always()
+        run: ls -la logs/ || echo "there is no logs/ folder"
 
       - name: Gates
         run: REQUIRE_EVAL_LOG=1 uv run pytest tests/evals/test_eval_gate.py

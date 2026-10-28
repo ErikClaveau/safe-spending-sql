@@ -32,10 +32,25 @@ from safe_spending.pipeline.synthesis import PROMPT_VERSION as SYNTHESIS_PROMPT_
 LOGS_DIR = Path(os.environ.get("EVAL_LOGS_DIR", Path(__file__).resolve().parents[2] / "logs"))
 
 
+def describe_logs(task, summaries):
+    """What is in the logs folder, so a missing log says why (no folder, no file, or a run that did not finish)."""
+    if not LOGS_DIR.is_dir():
+        return "the folder does not exist"
+    files = list(LOGS_DIR.glob("*.eval"))
+    if not summaries:
+        return f"{len(files)} .eval files, none of {task} with results"
+
+    return "; ".join(f"{Path(s.path).name}: {s.status}, {s.completed_samples}/{s.samples} samples" for s in summaries)
+
+
 def latest_run(task, questions):
-    run = latest_complete(discover(LOGS_DIR, task), questions) if LOGS_DIR.is_dir() else None
+    summaries = discover(LOGS_DIR, task) if LOGS_DIR.is_dir() else []
+    run = latest_complete(summaries, questions)
     if run is None:
-        message = f"no complete {task} eval log in {LOGS_DIR}: run the Inspect task first"
+        message = (
+            f"no complete {task} eval log in {LOGS_DIR} ({describe_logs(task, summaries)}): "
+            f"run the Inspect task first"
+        )
         if os.environ.get("REQUIRE_EVAL_LOG"):
             pytest.fail(message)
         pytest.skip(message)
