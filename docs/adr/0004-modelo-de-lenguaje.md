@@ -37,6 +37,10 @@ El baseline de la semana 3 fija el listón de calidad, latencia y coste. Se nece
 - La reproducibilidad es estadística, no bit a bit. `claude-sonnet-5-5` rechaza `temperature`, `top_p` y `top_k` distintos del valor por defecto, así que la variación solo se controla con el modelo fijado y el `effort`, que se fija explícitamente en la configuración (adaptador: `medium` por defecto).
 - Se activa la alternativa automática del proveedor ante un rechazo de seguridad (`fallbacks: "default"`). Si salta, el modelo que respondió no es el pedido: `LLMResponse.model` lo registra y el coste se calcula con el precio del modelo que respondió. Se puede desactivar por configuración para una medición limpia.
 
+**Resultado de la comparación (2026-10-28)**
+- Golden set v0 completo, mismo prompt y esfuerzo: Haiku 84,4 %, Sonnet 91,1 %, Opus 90,0 % de acierto tolerante, a $0,9, $13,2 y $29,8 por 1.000 consultas (detalle en `docs/iteraciones-evals.md`).
+- Opus no justifica el doble de coste y Haiku pierde 6 puntos, incluido un caso en que responde donde debía rechazar. Se mantiene **Sonnet 5.5**. Una ejecución por modelo: las diferencias de 1-2 puntos entre Sonnet y Opus no son concluyentes.
+
 **A revisar**
 - Si el coste de las evals completas resulta alto, ejecutar la completa solo de forma nocturna o manual.
 
@@ -44,4 +48,4 @@ El baseline de la semana 3 fija el listón de calidad, latencia y coste. Se nece
 
 1. [ ] Adaptador `LLMProvider` para la API de Claude, con tokens y coste en la respuesta.
 2. [ ] Modelo y parámetros en la configuración, y su registro en `TraceSink`.
-3. [ ] Medir el coste por 1.000 consultas del modelo base (plan §2.3).
+3. [x] Medir el coste por 1.000 consultas del modelo base (plan §2.3): $13,2 con Sonnet 5.5, sin síntesis de respuesta.
