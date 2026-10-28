@@ -89,4 +89,8 @@ Se amplían ambas partes sin tocar el dataset: aislamiento pasa de 22 a 32 pregu
 ## Pendiente
 
 - Trampas en otros caminos al modelo (un recibo, el nombre de una contraparte). Exige tocar el generador: subir `dataset_version`, refrescar el manifiesto y el golden.
-- El validador SQL frente a ataques directos (pendiente de decidir).
+- Medir las 20 preguntas nuevas contra el modelo y repetir las tareas, que es lo que reabre las puertas en local.
+
+## El validador SQL frente a ataques directos
+
+Además de las preguntas, 50 sentencias SQL hostiles se lanzan directamente contra `SqlglotSQLValidator` (`tests/pipeline/test_validator_functions.py`), sin modelo. Con la lista negra de funciones pasaban 34; con la lista blanca, 11, todos inocuos (`;` final, `LIMIT` enorme, `$$…$$`) o acotados por otras capas. Ejecutados como `app_reader` contra Postgres, saltándose el validador, `query_to_xml` leía la tabla base entera y `pg_roles`, y `version()` y `current_user` revelaban el servidor; el aislamiento entre usuarios aguantaba (RLS: el usuario 8 solo veía sus filas). Lo que se rompía era la promesa de que el modelo solo ve las tres vistas.

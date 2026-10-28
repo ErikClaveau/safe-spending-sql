@@ -114,7 +114,7 @@ La capa semántica traslada complejidad del LLM a SQL escrito y probado por una 
 
 **A revisar**
 - **ADR-008:** qué fecha expone `fecha` y cómo se convierte a euros.
-- **Semana 4:** la allowlist de sqlglot incluye exactamente las vistas semánticas.
+- **Semana 4 (hecho):** la allowlist de sqlglot incluye exactamente las vistas semánticas, y las **funciones** pasan de lista negra a lista blanca (`allowed_functions.py`). Una lista negra frenó `dblink` y no `dblink_exec`, y dejó pasar `query_to_xml('SELECT …')`, que ejecuta texto como SQL y se salta las vistas. De 50 ataques directos, 34 pasaban; ahora pasan 11, todos inocuos o acotados por el *timeout* y el tope de filas. Las 444 sentencias que el modelo escribió de verdad en los logs siguen pasando.
 - **Semana 6:** idioma del README y de los ADRs para lectores en inglés.
 
 ## Próximos pasos
