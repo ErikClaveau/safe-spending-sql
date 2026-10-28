@@ -12,13 +12,29 @@ A timeout is not corrected: rewording rarely makes a slow query fast, and each t
 Synthesis: with a synthesizer, a query that ran gets its answer written from the whole result (every column,
 so what third parties wrote in a concept reaches the model: the prompt and, later, the numeric check defend
 against it). Without one the assistant stops at the result, as the golden-set evals do.
+
+Tracing (ADR-007): with a `trace_sink` and a `trace_context`, every request is handed to the sink as a
+`RequestTrace` with the user as a pseudonym. A failing sink is logged and never changes the answer.
 """
 
-from safe_spending.pipeline.assistant.schemas import AssistantOutcome, AssistantResult, AssistantRound
+import logging
+import uuid
+
+from safe_spending.pipeline.assistant.ports import TraceSink
+from safe_spending.pipeline.assistant.pseudonym import pseudonymize
+from safe_spending.pipeline.assistant.schemas import (
+    AssistantOutcome,
+    AssistantResult,
+    AssistantRound,
+    RequestTrace,
+    TraceContext,
+)
 from safe_spending.pipeline.execution import ExecutionErrorKind, QueryExecutor
 from safe_spending.pipeline.generation import Correction, CorrectionKind, GeneratorAction, SQLGenerator
 from safe_spending.pipeline.synthesis import AnswerSynthesizer
 from safe_spending.pipeline.validation import SQLValidator
+
+logger = logging.getLogger(__name__)
 
 
 class Assistant:
@@ -29,18 +45,61 @@ class Assistant:
             executor: QueryExecutor,
             *,
             max_corrections: int = 1,
-            synthesizer: AnswerSynthesizer | None = None
+            synthesizer: AnswerSynthesizer | None = None,
+            trace_sink: TraceSink | None = None,
+            trace_context: TraceContext | None = None
     ) -> None:
         if max_corrections < 0:
             raise ValueError("max_corrections cannot be negative")
+        if (trace_sink is None) != (trace_context is None):
+            raise ValueError("trace_sink and trace_context go together")
 
         self._generator = generator
         self._validator = validator
         self._executor = executor
         self._max_corrections = max_corrections
         self._synthesizer = synthesizer
+        self._trace_sink = trace_sink
+        self._trace_context = trace_context
 
     def ask(
+            self,
+            user_id: int,
+            question: str
+    ) -> AssistantResult:
+        result = self._run(
+            user_id=user_id,
+            question=question
+        )
+        self._trace(
+            user_id=user_id,
+            result=result
+        )
+
+        return result
+
+    def _trace(
+            self,
+            user_id: int,
+            result: AssistantResult
+    ) -> None:
+        if self._trace_sink is None:
+            return
+
+        try:
+            self._trace_sink.emit(RequestTrace(
+                request_id=str(uuid.uuid4()),
+                user_ref=pseudonymize(
+                    user_id=user_id,
+                    salt=self._trace_context.user_salt
+                ),
+                commit_sha=self._trace_context.commit_sha,
+                result=result
+            ))
+        except Exception:
+            logger.exception("The trace sink failed; the answer is not affected")
+
+    def _run(
             self,
             user_id: int,
             question: str
