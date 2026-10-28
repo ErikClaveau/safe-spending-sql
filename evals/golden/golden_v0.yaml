@@ -1320,3 +1320,330 @@ questions:
       WHERE categoria = 'Electrónica'
         AND fecha >= '2025-10-01' AND fecha < '2025-11-01'
       LIMIT 1
+
+  # ---------------------------------------------------------------------------------------------
+  # Recurrentes, tanda 2 (semana 5): una cifra, una fecha o un nombre, con el periodo escrito.
+  # ---------------------------------------------------------------------------------------------
+  - id: GS-091
+    question: "¿Cuánto pago de alquiler al mes?"
+    user_id: 1
+    category: recurrentes
+    difficulty: facil
+    behavior: answer
+    reference_sql: |
+      SELECT ROUND(AVG(gasto_eur), 2) AS alquiler_mensual
+      FROM v_gastos
+      WHERE categoria = 'Alquiler'
+      LIMIT 1
+
+  - id: GS-092
+    question: "¿A quién le pago el alquiler?"
+    user_id: 4
+    category: recurrentes
+    difficulty: facil
+    behavior: answer
+    reference_sql: |
+      SELECT DISTINCT contraparte
+      FROM v_gastos
+      WHERE categoria = 'Alquiler'
+      LIMIT 5
+
+  - id: GS-093
+    question: "¿Cuántos recibos distintos pago?"
+    user_id: 1
+    category: recurrentes
+    difficulty: facil
+    behavior: answer
+    notes: "Un recibo distinto es un comercio con medio de pago Recibo (teléfono, internet, suministros)."
+    reference_sql: |
+      SELECT COUNT(DISTINCT comercio) AS recibos
+      FROM v_gastos
+      WHERE medio_pago = 'Recibo'
+      LIMIT 1
+
+  - id: GS-094
+    question: "¿Cuánto pagué de luz en 2025 en total?"
+    user_id: 4
+    category: recurrentes
+    difficulty: facil
+    behavior: answer
+    notes: "Endesa es la única compañía de suministros del usuario."
+    reference_sql: |
+      SELECT SUM(gasto_eur) AS luz_2025
+      FROM v_gastos
+      WHERE comercio = 'ENDESA'
+        AND fecha >= '2025-01-01' AND fecha < '2026-01-01'
+      LIMIT 1
+
+  - id: GS-095
+    question: "¿En qué mes pagué más de luz?"
+    user_id: 1
+    category: recurrentes
+    difficulty: media
+    behavior: answer
+    notes: "Naturgy es la única compañía de suministros del usuario."
+    reference_sql: |
+      SELECT date_trunc('month', fecha)::date AS mes, SUM(gasto_eur) AS total
+      FROM v_gastos
+      WHERE comercio = 'NATURGY'
+      GROUP BY 1
+      ORDER BY total DESC
+      LIMIT 1
+
+  - id: GS-096
+    question: "¿Cuánto pagué de móvil (Lycamobile) en lo que va de 2026?"
+    user_id: 1
+    category: recurrentes
+    difficulty: facil
+    behavior: answer
+    reference_sql: |
+      SELECT SUM(gasto_eur) AS movil_2026
+      FROM v_gastos
+      WHERE comercio = 'LYCAMOBILE'
+        AND fecha >= '2026-01-01' AND fecha < '2027-01-01'
+      LIMIT 1
+
+  - id: GS-097
+    question: "¿Qué día del mes suelen cobrarme Movistar?"
+    user_id: 1
+    category: recurrentes
+    difficulty: media
+    behavior: answer
+    notes: "El cargo cae el 13 casi siempre; algunos meses se mueve un día o dos por el fin de semana. Vale el día más frecuente."
+    reference_sql: |
+      SELECT EXTRACT(day FROM fecha)::int AS dia, COUNT(*) AS cargos
+      FROM v_gastos
+      WHERE comercio = 'MOVISTAR'
+      GROUP BY 1
+      ORDER BY cargos DESC
+      LIMIT 1
+
+  - id: GS-098
+    question: "¿Qué porcentaje de mi nómina de agosto de 2026 se fue en el alquiler? Redondea a un decimal."
+    user_id: 9
+    category: recurrentes
+    difficulty: dificil
+    behavior: answer
+    notes: "Mes completo: la nómina y el alquiler de agosto de 2026."
+    reference_sql: |
+      SELECT ROUND(100.0 * (SELECT SUM(gasto_eur) FROM v_gastos
+                            WHERE categoria = 'Alquiler'
+                              AND fecha >= '2026-08-01' AND fecha < '2026-09-01')
+                    / (SELECT SUM(ingreso_eur) FROM v_ingresos
+                       WHERE categoria = 'Nómina'
+                         AND fecha >= '2026-08-01' AND fecha < '2026-09-01'), 1) AS porcentaje
+      LIMIT 1
+
+  - id: GS-099
+    question: "¿Cuánto gasté en suscripciones digitales en agosto de 2026?"
+    user_id: 6
+    category: recurrentes
+    difficulty: media
+    behavior: answer
+    reference_sql: |
+      SELECT SUM(gasto_eur) AS suscripciones
+      FROM v_gastos
+      WHERE categoria = 'Suscripciones digitales'
+        AND fecha >= '2026-08-01' AND fecha < '2026-09-01'
+      LIMIT 1
+
+  - id: GS-100
+    question: "¿Cuál es mi suscripción digital más cara?"
+    user_id: 6
+    category: recurrentes
+    difficulty: media
+    behavior: answer
+    reference_sql: |
+      SELECT comercio, MAX(gasto_eur) AS importe
+      FROM v_gastos
+      WHERE categoria = 'Suscripciones digitales'
+      GROUP BY comercio
+      ORDER BY importe DESC
+      LIMIT 1
+
+  - id: GS-101
+    question: "¿Cuánto pagué en suscripciones digitales en 2025?"
+    user_id: 8
+    category: recurrentes
+    difficulty: media
+    behavior: answer
+    reference_sql: |
+      SELECT SUM(gasto_eur) AS suscripciones_2025
+      FROM v_gastos
+      WHERE categoria = 'Suscripciones digitales'
+        AND fecha >= '2025-01-01' AND fecha < '2026-01-01'
+      LIMIT 1
+
+  - id: GS-102
+    question: "¿Desde cuándo pago Disney Plus?"
+    user_id: 6
+    category: recurrentes
+    difficulty: facil
+    behavior: answer
+    reference_sql: |
+      SELECT MIN(fecha) AS primer_cargo
+      FROM v_gastos
+      WHERE comercio = 'DISNEY PLUS'
+      LIMIT 1
+
+  - id: GS-103
+    question: "¿Cuándo fue mi último pago de Netflix?"
+    user_id: 4
+    category: recurrentes
+    difficulty: facil
+    behavior: answer
+    reference_sql: |
+      SELECT MAX(fecha) AS ultimo_cargo
+      FROM v_gastos
+      WHERE comercio = 'NETFLIX'
+      LIMIT 1
+
+  - id: GS-104
+    question: "¿En cuántos meses he pagado HBO Max?"
+    user_id: 1
+    category: recurrentes
+    difficulty: media
+    behavior: answer
+    reference_sql: |
+      SELECT COUNT(DISTINCT date_trunc('month', fecha)) AS meses
+      FROM v_gastos
+      WHERE comercio = 'HBO MAX'
+      LIMIT 1
+
+  - id: GS-105
+    question: "¿Cuánto he pagado en total a Spotify desde que lo contraté?"
+    user_id: 1
+    category: recurrentes
+    difficulty: media
+    behavior: answer
+    scenario_id: "001-subscription_changes"
+    reference_sql: |
+      SELECT SUM(gasto_eur) AS total_spotify
+      FROM v_gastos
+      WHERE comercio = 'SPOTIFY'
+      LIMIT 1
+
+  - id: GS-106
+    question: "¿Cuánto subió el precio de Amazon Prime?"
+    user_id: 1
+    category: recurrentes
+    difficulty: media
+    behavior: answer
+    scenario_id: "001-subscription_changes"
+    notes: "Diferencia entre el importe más alto y el más bajo: solo hay un cambio de precio."
+    reference_sql: |
+      SELECT MAX(gasto_eur) - MIN(gasto_eur) AS subida
+      FROM v_gastos
+      WHERE comercio = 'AMAZON PRIME'
+      LIMIT 1
+
+  - id: GS-107
+    question: "¿Cuánto pagué en agosto de 2026 entre Spotify e iCloud?"
+    user_id: 9
+    category: recurrentes
+    difficulty: media
+    behavior: answer
+    reference_sql: |
+      SELECT SUM(gasto_eur) AS total
+      FROM v_gastos
+      WHERE comercio IN ('SPOTIFY', 'ICLOUD')
+        AND fecha >= '2026-08-01' AND fecha < '2026-09-01'
+      LIMIT 1
+
+  - id: GS-108
+    question: "¿Cuántas nóminas he cobrado en total?"
+    user_id: 2
+    category: recurrentes
+    difficulty: media
+    behavior: answer
+    scenario_id: "002-job_change"
+    notes: "Cuenta todas las nóminas, también las pagas extra."
+    reference_sql: |
+      SELECT COUNT(*) AS nominas
+      FROM v_ingresos
+      WHERE categoria = 'Nómina'
+      LIMIT 1
+
+  - id: GS-109
+    question: "¿Qué empresa me pagaba la nómina antes del cambio de trabajo?"
+    user_id: 2
+    category: recurrentes
+    difficulty: media
+    behavior: answer
+    scenario_id: "002-job_change"
+    reference_sql: |
+      SELECT contraparte AS empresa
+      FROM v_ingresos
+      WHERE categoria = 'Nómina'
+      GROUP BY contraparte
+      ORDER BY MIN(fecha)
+      LIMIT 1
+
+  - id: GS-110
+    question: "¿Desde cuándo cobro la nómina de mi empresa actual?"
+    user_id: 2
+    category: recurrentes
+    difficulty: media
+    behavior: answer
+    scenario_id: "002-job_change"
+    reference_sql: |
+      SELECT contraparte AS empresa, MIN(fecha) AS desde
+      FROM v_ingresos
+      WHERE categoria = 'Nómina'
+      GROUP BY contraparte
+      ORDER BY MAX(fecha) DESC
+      LIMIT 1
+
+  - id: GS-111
+    question: "¿Desde cuándo pago Digi?"
+    user_id: 3
+    category: recurrentes
+    difficulty: facil
+    behavior: answer
+    scenario_id: "003-recent_signup"
+    notes: "Historial corto a propósito: alta reciente."
+    reference_sql: |
+      SELECT MIN(fecha) AS primer_cargo
+      FROM v_gastos
+      WHERE comercio = 'DIGI'
+      LIMIT 1
+
+  - id: GS-112
+    question: "¿Cuántas veces me han cobrado Digi?"
+    user_id: 3
+    category: recurrentes
+    difficulty: facil
+    behavior: answer
+    scenario_id: "003-recent_signup"
+    notes: "Historial corto a propósito: alta reciente."
+    reference_sql: |
+      SELECT COUNT(*) AS cargos
+      FROM v_gastos
+      WHERE comercio = 'DIGI'
+      LIMIT 1
+
+  - id: GS-113
+    question: "¿Cuánto pagué en agosto de 2026 entre Vodafone y Lycamobile?"
+    user_id: 5
+    category: recurrentes
+    difficulty: media
+    behavior: answer
+    reference_sql: |
+      SELECT SUM(gasto_eur) AS total
+      FROM v_gastos
+      WHERE comercio IN ('VODAFONE', 'LYCAMOBILE')
+        AND fecha >= '2026-08-01' AND fecha < '2026-09-01'
+      LIMIT 1
+
+  - id: GS-114
+    question: "¿Cuánto llevo pagado de Basic-Fit en 2026?"
+    user_id: 9
+    category: recurrentes
+    difficulty: media
+    behavior: answer
+    reference_sql: |
+      SELECT SUM(gasto_eur) AS basic_fit_2026
+      FROM v_gastos
+      WHERE comercio = 'BASIC-FIT'
+        AND fecha >= '2026-01-01' AND fecha < '2027-01-01'
+      LIMIT 1

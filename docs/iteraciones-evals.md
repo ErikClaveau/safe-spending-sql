@@ -51,6 +51,20 @@ Misma configuración que la fila 6 (prompt v3, documentación `0004`, esfuerzo `
 - Los fallos de referencia estricta (GS-033, 046, 049, 050, 052, 086) son los mismos en los tres modelos: no dependen del modelo.
 - Coste por 1.000 consultas: coste de la ejecución de 90 preguntas × 1.000/90, sin síntesis de respuesta.
 
+## Set ampliado: 114 preguntas (semana 5)
+
+Se añaden 24 preguntas de `recurrentes` (GS-091 a GS-114, 8 de ellas de *test*). Las filas de arriba son del set de 90 y no se recalculan; esta es la primera medición del set nuevo, con la misma configuración que la fila 6.
+
+| Set | Tolerante (todas) | dev | test | Estricta | Coste |
+|---|---|---|---|---|---|
+| 114 preguntas | 89,5 % (102/114) | 87,5 % (70/80) | 94,1 % (32/34) | 68,4 % | $1,50 |
+| Las 90 originales dentro de esa ejecución | 92,2 % (83/90) | | | | |
+| Las 24 nuevas | 79,2 % (19/24) | | 100 % (8/8) | | |
+
+- **Las 8 nuevas de *test* salen bien; las 5 que fallan son de *dev*** (GS-091, 097, 100, 106 y 109). Las cinco tienen la misma forma: el modelo devuelve el detalle en vez de la cifra única que pide la pregunta (36 meses de alquiler con 790 cada uno, el día de cobro con tres filas y más columnas, todas las suscripciones, todos los cargos de Amazon Prime, los dos empleadores por fecha). La respuesta sintetizada puede estar bien, pero la consulta no entrega el dato directo.
+- **Las 90 originales dan 83/90**, una más que en la fila 6: GS-055 acertó (era ruido). Los 7 fallos son los de referencia estricta de siempre.
+- **Cinco de veinticuatro es una señal, no un problema de referencia**: las preguntas se escribieron para tener una respuesta inequívoca. Es un candidato a la siguiente ronda (se decide solo con las de *dev*), por ejemplo una regla de prompt «si la pregunta pide un dato, responde con una fila». Ya hubo una regla parecida en la fila 2 («devuelve solo las columnas pedidas») y rompió ocho preguntas, así que habría que medirla con `--epochs 3`.
+- Cada respuesta nueva se contrastó con una vía que no usa las vistas (parámetros de escenario y movimientos crudos) en `tests/evals/test_golden_truth.py`.
 ## Ruido y contaminación
 
 Cada fila es una ejecución y el modelo no es determinista: el error estándar es de unos 3 puntos sobre 90 preguntas, y cada fila tiene entre uno y tres cambios que son ruido (GS-053 en la fila 1, GS-055 en la 3). Las diferencias de uno o dos puntos no son concluyentes. Para fiarse de una mejora pequeña hay que repetir con `--epochs 3`.

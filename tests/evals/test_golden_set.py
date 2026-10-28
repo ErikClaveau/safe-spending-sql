@@ -24,8 +24,8 @@ def question(**overrides):
 # ---------------------------------------------------------------------------
 
 
-def test_the_set_is_the_size_the_plan_asks_for_in_week_two(golden):
-    assert 80 <= len(golden.questions) <= 100  # ~80 questions for v0 (plan section 14)
+def test_the_set_is_the_size_the_plan_asks_for(golden):
+    assert 80 <= len(golden.questions) <= 200  # ~80 for v0 (week 2), 150-200 functional at the end (plan section 14)
 
 
 def test_ids_are_contiguous_from_gs_001(golden):

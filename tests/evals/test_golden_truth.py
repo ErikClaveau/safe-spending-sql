@@ -146,6 +146,19 @@ def test_the_recent_user_has_history_only_from_the_signup_date(results, params):
     assert money(results, "GS-088") > 0
 
 
+def test_the_recurring_questions_of_week_five_match_the_scenarios(results, params):
+    subscriptions = params["subscription_changes"]
+    job = params["job_change"]
+    assert money(results, "GS-106") == subscriptions.price_increase.new_eur - subscriptions.price_increase.old_eur
+    assert cell(results, "GS-109") == job.old_employer
+    assert results["GS-110"].rows[0] == (job.new_employer, job.change_date.isoformat())
+
+
+def test_the_recent_user_pays_the_phone_from_the_signup_date(results, params):
+    first = date.fromisoformat(cell(results, "GS-111"))
+    assert params["recent_signup"].signup_date <= first < params["recent_signup"].signup_date + timedelta(days=60)
+
+
 # ---------------------------------------------------------------------------
 # Truth from the raw generated movements, summed in Python
 # ---------------------------------------------------------------------------
@@ -224,3 +237,24 @@ def test_transfers_are_not_counted_as_spending_in_the_question_that_traps_it(res
     naive = -sum(t.amount_eur for t in dataset.transactions
                  if t.user_id == 15 and t.amount_eur < 0 and t.booking_date >= start)  # counts the transfers too
     assert money(results, "GS-070") == spending(dataset, 15, start) < naive
+
+
+def merchant_total(dataset, user_id, merchant, start=date(2000, 1, 1), end=date(2100, 1, 1)):
+    ids = {m.merchant_id for m in dataset.merchants if m.normalized_name == merchant}
+    return -sum(
+        t.amount_eur
+        for t in dataset.transactions
+        if t.user_id == user_id and t.merchant_id in ids and start <= t.booking_date < end
+    )
+
+
+def test_recurring_merchant_totals_match_the_raw_movements(results, dataset):
+    assert money(results, "GS-094") == merchant_total(dataset, 4, "ENDESA", date(2025, 1, 1), date(2026, 1, 1))
+    assert money(results, "GS-096") == merchant_total(dataset, 1, "LYCAMOBILE", date(2026, 1, 1), date(2027, 1, 1))
+    assert money(results, "GS-105") == merchant_total(dataset, 1, "SPOTIFY")
+    assert money(results, "GS-114") == merchant_total(dataset, 9, "BASIC-FIT", date(2026, 1, 1), date(2027, 1, 1))
+
+
+def test_the_number_of_pays_matches_the_raw_movements(results, dataset):
+    pays = [t for t in dataset.transactions if t.user_id == 2 and t.tx_code is TxCode.SALARY]
+    assert cell(results, "GS-108") == len(pays)

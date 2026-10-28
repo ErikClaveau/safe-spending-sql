@@ -13,7 +13,7 @@ El golden set es la especificación de lo que el asistente debe saber responder:
 
 ## Composición (v0, dataset 0.5.0)
 
-90 preguntas, 82 con SQL de referencia, todas sobre los usuarios funcionales 1-15.
+114 preguntas, 106 con SQL de referencia, todas sobre los usuarios funcionales 1-15. Las 90 primeras son el v0 original; GS-091 a GS-114 (semana 5) son 24 preguntas más de recurrentes, escritas con una cifra, una fecha o un nombre concretos y el periodo a la vista.
 
 | Categoría | Preguntas | Comportamiento esperado |
 |---|---|---|
@@ -22,7 +22,7 @@ El golden set es la especificación de lo que el asistente debe saber responder:
 | Ranking | 8 | SQL con `ORDER BY` y `LIMIT` |
 | Filtro compuesto | 8 | SQL con varios filtros |
 | Ingresos frente a gastos | 9 | Agregado con signo, combinando las dos vistas |
-| Recurrentes | 9 | Suscripciones, recibos y nómina |
+| Recurrentes | 33 | Suscripciones, recibos, alquiler y nómina |
 | Divisa | 6 | Pagos en libras, comisión y tipo de cambio (usuario 6) |
 | Devoluciones | 7 | Compras menos devoluciones (usuario 7 y la población) |
 | Traspasos entre cuentas propias | 5 | Que no cuentan como gasto ni como ingreso |
@@ -30,7 +30,7 @@ El golden set es la especificación de lo que el asistente debe saber responder:
 | Sin datos | 4 | `no_data`: decir que no hay datos, sin inventar |
 | Fuera de dominio | 4 | `refuse`: rechazo educado |
 
-Dificultad: 20 fáciles, 50 medias y 20 difíciles. 26 preguntas están ancladas a uno de los siete escenarios guionizados. Los usuarios 1-7 tienen escenario (suscripciones, cambio de trabajo, alta reciente, categoría a cero, mes anómalo, Londres y Amazon) y los 8-15 son usuarios normales; los que tienen cuenta de ahorro se usan para los traspasos.
+Dificultad: 29 fáciles, 64 medias y 21 difíciles. 33 preguntas están ancladas a uno de los siete escenarios guionizados. Los usuarios 1-7 tienen escenario (suscripciones, cambio de trabajo, alta reciente, categoría a cero, mes anómalo, Londres y Amazon) y los 8-15 son usuarios normales; los que tienen cuenta de ahorro se usan para los traspasos.
 
 Quedan fuera de v0, y son trabajo de las semanas siguientes: el set adversarial (aislamiento y datos con canarios, semana 4) y llegar a las 150-200 preguntas funcionales del plan.
 
@@ -46,7 +46,7 @@ Quedan fuera de v0, y son trabajo de las semanas siguientes: el set adversarial 
 
 ## Partición dev / test
 
-Mejorar prompts y documentación contra las mismas preguntas con las que se mide hace subir la cifra por ajustarse a esas preguntas. Por eso 26 de las 90 (`evals/golden/splits_v0.yaml`) son **test**: se puntúan en cada ronda y se publican junto al resto, pero ningún cambio se decide por una pregunta de test. Las 64 restantes son **dev**.
+Mejorar prompts y documentación contra las mismas preguntas con las que se mide hace subir la cifra por ajustarse a esas preguntas. Por eso 34 de las 114 (`evals/golden/splits_v0.yaml`) son **test**: se puntúan en cada ronda y se publican junto al resto, pero ningún cambio se decide por una pregunta de test. Las 80 restantes son **dev**. Las 26 originales no se han movido: las 8 de test añadidas en la semana 5 (GS-093, 096, 099, 102, 105, 108, 111 y 114) son las que la misma regla deriva para las preguntas nuevas, y el fichero solo las añade al final.
 
 La regla es mecánica, para que nadie elija: dentro de cada categoría, en orden de id, una de cada tres preguntas (la 3.ª, la 6.ª, la 9.ª…). `derive_test_ids` la implementa y `tests/evals/test_splits.py` comprueba que el fichero congelado sigue siendo exactamente lo que da la regla. Ampliar el set significa un set nuevo (v1), no editar este fichero. `-T split=dev` o `-T split=test` ejecutan solo una parte, y cada log desglosa el acierto por partición.
 
