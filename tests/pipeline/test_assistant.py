@@ -142,6 +142,8 @@ def test_cost_and_latency_add_up_over_the_stages():
 
     assert result.cost_usd == Decimal("0.01")
     assert result.latency_s == pytest.approx(2.5)  # 2.0 generation + 0.5 execution
+    stages = result.latency_by_stage
+    assert (stages.generation_s, stages.execution_s, stages.synthesis_s) == pytest.approx((2.0, 0.5, 0.0))
 
 
 # ---------------------------------------------------------------------------
@@ -263,6 +265,8 @@ def test_cost_and_latency_cover_every_try():
 
     assert result.cost_usd == Decimal("0.02")  # two generations
     assert result.latency_s == pytest.approx(4.5)  # 2.0 + 2.0 generating, 0.5 executing the corrected one
+    assert result.latency_by_stage.generation_s == pytest.approx(4.0)
+    assert result.latency_by_stage.execution_s == pytest.approx(0.5)
 
 
 def test_a_negative_number_of_corrections_is_refused():

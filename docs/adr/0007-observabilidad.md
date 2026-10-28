@@ -41,7 +41,7 @@ El plan (§10) pide una traza por petición con: identificador de la petición, 
 - `docker compose up` sigue siendo ligero.
 
 **Más difícil**
-- Hay que decidir el desglose de latencia por etapa (hoy `latency_s` suma generaciones, ejecuciones y síntesis). Para el span por etapa, cada resultado debe llevar su propia latencia; ya la tienen `GenerationResult`, `ExecutionResult` y `SynthesisResult`, falta usarla.
+- Latencia por etapa: resuelta con `AssistantResult.latency_by_stage` (`StageLatency`: generación, ejecución y síntesis, sumadas sobre todos los intentos; `latency_s` es su total). La validación no se mide (sqlglot tarda bastante menos de un milisegundo) y la verificación numérica cuenta dentro de la síntesis.
 - El pseudónimo del usuario necesita una sal en configuración y una regla de rotación.
 - Un fichero JSONL crece sin límite: rotación por día y tamaño máximo.
 

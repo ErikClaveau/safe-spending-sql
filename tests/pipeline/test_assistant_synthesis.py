@@ -60,6 +60,8 @@ def test_a_query_that_ran_is_followed_by_the_answer_written_from_its_result():
     assert table.rows == ((10,),)
     assert result.cost_usd == Decimal("0.03")
     assert result.latency_s == pytest.approx(3.5)  # 2.0 generating + 0.5 executing + 1.0 synthesizing
+    assert result.latency_by_stage.synthesis_s == pytest.approx(1.0)
+    assert result.latency_by_stage.total_s == pytest.approx(result.latency_s)
 
 
 def test_a_synthesis_that_never_validated_ends_the_question_as_a_failure():
