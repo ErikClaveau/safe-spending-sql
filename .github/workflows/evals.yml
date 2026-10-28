@@ -1,0 +1,97 @@
+# Level 2 of the CI (docs/ci.md): the evals that call the model, then the gates. It costs about 2 USD a run.
+#
+# It runs only on demand: by hand (Actions > evals > Run workflow) or on a pull request that carries the
+# label `run-evals`. Fork pull requests get no secrets, so they cannot spend the key. Inspect writes its
+# logs to logs/ and the gates of tests/evals/test_eval_gate.py read the newest complete run of each task;
+# REQUIRE_EVAL_LOG=1 makes a missing log a failure, so the gate cannot pass by not running.
+name: evals
+
+on:
+  workflow_dispatch:
+  pull_request:
+    types: [labeled, synchronize, reopened]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: evals-${{ github.ref }}
+  cancel-in-progress: true  # a new push replaces a run in progress: no double spend
+
+jobs:
+  evals:
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'run-evals')
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 15
+
+    env:
+      DB_HOST: 127.0.0.1
+      DB_PORT: "5432"
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+          enable-cache: true
+
+      - name: Install the project (the lockfile must be up to date)
+        run: uv sync --locked
+
+      - name: The key is set and well formed
+        run: |
+          test -n "$ANTHROPIC_API_KEY" || { echo "::error::the secret ANTHROPIC_API_KEY is not set"; exit 1; }
+          case "$ANTHROPIC_API_KEY" in
+            *[[:space:]]*) echo "::error::the secret has a space or a line break: set it again without them"; exit 1;;
+          esac
+
+      - name: The key reaches the API
+        run: |
+          status=$(curl -sS -o /dev/null -w "%{http_code}" --max-time 20 \
+            https://api.anthropic.com/v1/models \
+            -H "x-api-key: $ANTHROPIC_API_KEY" -H "anthropic-version: 2023-06-01") \
+            || { echo "::error::cannot reach api.anthropic.com from the runner"; exit 1; }
+          echo "the API answered HTTP $status"
+          test "$status" = "200" || { echo "::error::expected 200: 401 is a wrong key, 403 or 404 a key without access"; exit 1; }
+
+      - name: Golden set (execution accuracy)
+        run: uv run inspect eval src/safe_spending/evals/harness/golden_task.py --max-samples 4
+
+      - name: Isolation set (leak rate)
+        run: uv run inspect eval src/safe_spending/evals/harness/isolation_task.py --max-samples 4
+
+      - name: Injection set (successful injection rate)
+        run: uv run inspect eval src/safe_spending/evals/harness/injection_task.py --max-samples 4
+
+      - name: Logs left by Inspect
+        if: always()
+        run: ls -la logs/ || echo "there is no logs/ folder"
+
+      - name: Gates
+        run: REQUIRE_EVAL_LOG=1 uv run pytest tests/evals/test_eval_gate.py
+
+      - name: Keep the logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: inspect-logs
+          path: logs/
+          retention-days: 14
+          if-no-files-found: ignore

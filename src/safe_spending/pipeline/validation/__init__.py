@@ -1,10 +1,10 @@
-from .adapters import ALLOWED_VIEWS, FORBIDDEN_FUNCTIONS, USER_COLUMNS, SqlglotSQLValidator
+from .adapters import ALLOWED_FUNCTIONS, ALLOWED_VIEWS, USER_COLUMNS, SqlglotSQLValidator
 from .ports import SQLValidator
 from .schemas import ValidationResult
 
 __all__ = [
+    "ALLOWED_FUNCTIONS",
     "ALLOWED_VIEWS",
-    "FORBIDDEN_FUNCTIONS",
     "SQLValidator",
     "SqlglotSQLValidator",
     "USER_COLUMNS",

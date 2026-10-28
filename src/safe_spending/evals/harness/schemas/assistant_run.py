@@ -15,6 +15,10 @@ class AssistantRun(BaseModel):
     outcome: AssistantOutcome
     table: ResultTable | None = Field(description="The result when the query ran, else none.")
     message: str | None
+    answer: str | None = Field(
+        default=None,
+        description="The text for the user, when the assistant synthesizes one."
+    )
     sql: str | None
     cost_usd: float | None = Field(description="None when the model has no known price.")
     latency_s: float
@@ -31,6 +35,7 @@ class AssistantRun(BaseModel):
             outcome=result.outcome,
             table=table,
             message=result.message,
+            answer=result.answer,
             sql=result.sql,
             cost_usd=float(result.cost_usd) if result.cost_usd is not None else None,
             latency_s=result.latency_s,

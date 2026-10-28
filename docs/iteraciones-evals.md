@@ -11,6 +11,7 @@ Todas las filas se muestran con la **métrica vigente (M3)**, volviendo a puntua
 | 2 | Prompt v2: `COALESCE`, periodo por defecto y solo las columnas pedidas | 83,3 % (75/90) | 84,4 % | 80,8 % | 74,4 % | $1,15 |
 | 3 | Prompt v3: como v2 sin la regla de las columnas | **90,0 % (81/90)** | 89,1 % (57/64) | 92,3 % (24/26) | 70,0 % | $1,16 |
 | 4 | Autocorrección: una pasada si el validador o la base de datos rechazan el SQL | 90,0 % (81/90) | 89,1 % (57/64) | 92,3 % (24/26) | 70,0 % | $1,17 |
+| 5 | Validador con lista blanca de funciones (sin cambio de prompt) | 91,1 % (82/90) | 90,6 % (58/64) | 92,3 % (24/26) | 68,9 % | $1,16 |
 
 ## Versiones de la métrica
 
@@ -29,6 +30,8 @@ M2 y M3 se decidieron viendo resultados, por eso se conservan las cifras anterio
 **3. Prompt v3.** La v1 con solo las dos reglas buenas. Arregla GS-011 y 012 (el `COALESCE`, un mecanismo claro). GS-055 pasa a correcta sin que ninguna regla lo explique: ruido. Rompe GS-043 porque el validador rechaza `generate_series(...)` en el `FROM`, una función de tabla inofensiva (ver abajo).
 
 **4. Autocorrección.** Si el validador rechaza el SQL, o la base de datos devuelve un error, el modelo ve su respuesta anterior y el motivo y la escribe de nuevo (máximo una vez; un *timeout* no se corrige). El SQL corregido pasa por el mismo validador y la misma ejecución bajo RLS. En las 90 preguntas solo una necesitó corrección: GS-043, que el modelo había escrito con `generate_series(...)` en el `FROM` y el validador rechazaba; al corregirla, acierta. El total no cambia porque GS-053 (Londres) pasó de correcta a «pide las fechas», que es ruido (en la fila 1 había pasado al revés). Coste: $0,01 más en total. Se mide con `-T max_corrections=0` frente al valor por defecto.
+
+**5. Lista blanca de funciones.** El validador pasa de una lista negra a una lista blanca de funciones (ADR-005). No es una mejora de acierto y no se presenta como tal: 82 frente a 81 aciertos está dentro del ruido (error estándar de unos 3 puntos) y la fila se mide para comprobar que **no hay regresión**. Se hizo en el CI de GitHub (Linux), no en la máquina de las filas anteriores. Antes de medir, las 444 sentencias que el modelo escribió en los logs seguían pasando por el validador; el acierto no prueba que el modelo no haya tropezado con la lista: una función rechazada y autocorregida también acaba en acierto. Falta contar en el log (`corrections` con `is not allowed`) cuántas veces ocurrió. No se han vuelto a analizar los fallos que quedan: la lista de abajo es la de la fila 4.
 
 ## Ruido y contaminación
 

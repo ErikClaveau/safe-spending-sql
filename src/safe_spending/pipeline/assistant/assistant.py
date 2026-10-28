@@ -8,11 +8,16 @@ Self-correction: if the validator rejects the SQL, or the database refuses it, t
 went wrong and writes it again, up to `max_corrections` times. The corrected SQL goes through the same
 validator and the same RLS execution as the first one, so a correction never has more privileges.
 A timeout is not corrected: rewording rarely makes a slow query fast, and each try costs seconds.
+
+Synthesis: with a synthesizer, a query that ran gets its answer written from the whole result (every column,
+so what third parties wrote in a concept reaches the model: the prompt and, later, the numeric check defend
+against it). Without one the assistant stops at the result, as the golden-set evals do.
 """
 
 from safe_spending.pipeline.assistant.schemas import AssistantOutcome, AssistantResult, AssistantRound
 from safe_spending.pipeline.execution import ExecutionErrorKind, QueryExecutor
 from safe_spending.pipeline.generation import Correction, CorrectionKind, GeneratorAction, SQLGenerator
+from safe_spending.pipeline.synthesis import AnswerSynthesizer
 from safe_spending.pipeline.validation import SQLValidator
 
 
@@ -23,7 +28,8 @@ class Assistant:
             validator: SQLValidator,
             executor: QueryExecutor,
             *,
-            max_corrections: int = 1
+            max_corrections: int = 1,
+            synthesizer: AnswerSynthesizer | None = None
     ) -> None:
         if max_corrections < 0:
             raise ValueError("max_corrections cannot be negative")
@@ -32,6 +38,7 @@ class Assistant:
         self._validator = validator
         self._executor = executor
         self._max_corrections = max_corrections
+        self._synthesizer = synthesizer
 
     def ask(
             self,
@@ -77,13 +84,20 @@ class Assistant:
                     sql=response.sql
                 )
                 if execution.ok:
+                    synthesis = self._synthesize(
+                        question=question,
+                        response=response,
+                        execution=execution
+                    )
+                    failed = synthesis is not None and synthesis.answer is None
                     return self._result(
                         question=question,
-                        outcome=AssistantOutcome.ANSWERED,
+                        outcome=AssistantOutcome.SYNTHESIS_FAILED if failed else AssistantOutcome.ANSWERED,
                         generation=generation,
                         earlier=earlier,
                         validation=validation,
-                        execution=execution
+                        execution=execution,
+                        synthesis=synthesis
                     )
 
             correction = self._correction(
@@ -109,8 +123,28 @@ class Assistant:
                 correction=correction
             ))
 
+    def _synthesize(
+            self,
+            question,
+            response,
+            execution
+    ):
+        if self._synthesizer is None:
+            return None
+
+        return self._synthesizer.synthesize(
+            question=question,
+            sql=response.sql,
+            result=execution.result,
+            assumptions=response.message
+        )
+
     @staticmethod
-    def _correction(response, validation, execution) -> Correction | None:
+    def _correction(
+            response,
+            validation,
+            execution
+    ) -> Correction | None:
         if not validation.valid:
             return Correction(
                 response=response,
@@ -127,12 +161,21 @@ class Assistant:
         return None
 
     @staticmethod
-    def _result(question, outcome, generation, earlier, validation=None, execution=None) -> AssistantResult:
+    def _result(
+            question,
+            outcome,
+            generation,
+            earlier,
+            validation=None,
+            execution=None,
+            synthesis=None
+    ) -> AssistantResult:
         return AssistantResult(
             question=question,
             outcome=outcome,
             generation=generation,
             validation=validation,
             execution=execution,
-            corrections=tuple(earlier)
+            corrections=tuple(earlier),
+            synthesis=synthesis
         )

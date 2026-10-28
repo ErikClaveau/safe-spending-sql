@@ -37,7 +37,7 @@ El pipeline necesita que el modelo devuelva datos, no prosa: el SQL, si hace fal
 - Hay que implementar los reintentos y su registro.
 
 **A revisar**
-- La acción `aclarar` depende del ADR-010 (qué hacer ante ambigüedad), todavía pendiente.
+- La acción `aclarar` se usa solo cuando no hay una interpretación razonable; si la hay, se asume y se explicita (ADR-010).
 
 - El esquema de `GeneratorResponse` (campos opcionales con `anyOf` nulo y `$defs` para el enum) se probó el 2026-10-21 contra la API real con `strict: true` y `claude-sonnet-5-5`: la API lo aceptó y el modelo llamó a la herramienta en las dos preguntas de prueba (una de consulta y una fuera de dominio), con salidas que validaron con Pydantic.
 

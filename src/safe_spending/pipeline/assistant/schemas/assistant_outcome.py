@@ -10,3 +10,4 @@ class AssistantOutcome(StrEnum):
     GENERATION_FAILED = "generation_failed"
     REJECTED = "rejected"
     EXECUTION_FAILED = "execution_failed"
+    SYNTHESIS_FAILED = "synthesis_failed"

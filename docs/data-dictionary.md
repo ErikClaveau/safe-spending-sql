@@ -21,7 +21,7 @@ One row per movement, including internal transfers. There is no balance column: 
 | Column | Type | Meaning |
 |---|---|---|
 | `id_movimiento` | bigint | Movement identifier (`transactions.tx_id`). |
-| `fecha` | date | Booking date, without time. Provisional until ADR-008 decides which date is exposed. |
+| `fecha` | date | Booking date, without time (ADR-008). The value date is not exposed. |
 | `importe_eur` | numeric(12,2) | Amount in euros as charged to the account, signed. |
 | `importe_original` | numeric(12,2) | Original amount of the operation, signed, in `divisa_original`. Equal to `importe_eur` for euro operations. |
 | `divisa_original` | char(3) | ISO 4217 code of the original currency. |

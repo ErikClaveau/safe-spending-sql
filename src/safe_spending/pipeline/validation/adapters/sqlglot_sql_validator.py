@@ -1,21 +1,19 @@
-"""`SQLValidator` over sqlglot: a single SELECT, only the semantic views, a LIMIT, nothing dangerous.
+"""`SQLValidator` over sqlglot: a single SELECT, only the semantic views, a LIMIT, only allowed functions.
 
 Moved from the golden set's reference-SQL rules, which now call it, so the SQL the assistant writes and
-the SQL the golden set expects obey one rule set. Week 4 hardens it against the adversarial set.
+the SQL the golden set expects obey one rule set. Week 4 hardened it against direct attacks: functions are
+an allowlist (`allowed_functions.py`), and the clauses that a SELECT can use to do more than read are refused.
 """
 
 import sqlglot
 from sqlglot import exp
 from sqlglot.errors import ParseError
 
+from safe_spending.pipeline.validation.adapters.allowed_functions import ALLOWED_FUNCTIONS
 from safe_spending.pipeline.validation.ports import SQLValidator
 from safe_spending.pipeline.validation.schemas import ValidationResult
 
 ALLOWED_VIEWS = frozenset({"v_movimientos", "v_gastos", "v_ingresos"})
-FORBIDDEN_FUNCTIONS = frozenset({
-    "pg_sleep", "set_config", "current_setting", "pg_read_file", "pg_ls_dir", "dblink", "lo_import", "lo_export",
-    "pg_terminate_backend", "pg_cancel_backend", "copy",
-})
 USER_COLUMNS = frozenset({"user_id", "app.user_id"})
 
 
@@ -50,6 +48,15 @@ class SqlglotSQLValidator(SQLValidator):
         if root.args.get("limit") is None:
             violations.append("must have a LIMIT")
 
+        for select in root.find_all(exp.Select):
+            if select.args.get("into") is not None:
+                violations.append("SELECT INTO creates a table")
+            if select.args.get("locks"):
+                violations.append("row locks (FOR UPDATE, FOR SHARE) are not allowed")
+        for with_ in root.find_all(exp.With):
+            if with_.args.get("recursive"):
+                violations.append("recursive queries are not allowed")
+
         ctes = {
             cte.alias_or_name
             for cte in root.find_all(exp.CTE)
@@ -60,16 +67,19 @@ class SqlglotSQLValidator(SQLValidator):
             elif table.name not in ALLOWED_VIEWS | ctes:
                 violations.append(f"table {table.name} is not a semantic view")
 
-        for function in root.find_all(exp.Func):
-            name = (function.sql_name() or "").lower()
-            if name in FORBIDDEN_FUNCTIONS:
-                violations.append(f"function {name} is forbidden")
-        for node in root.find_all(exp.Anonymous):
-            if node.name.lower() in FORBIDDEN_FUNCTIONS:
-                violations.append(f"function {node.name} is forbidden")
+        for name in sorted({_function_name(function) for function in root.find_all(exp.Func)}):
+            if name not in ALLOWED_FUNCTIONS:
+                violations.append(f"function {name} is not allowed")
 
         for column in root.find_all(exp.Column):
             if column.name.lower() in USER_COLUMNS:
                 violations.append("must not mention user_id: isolation is RLS, not a filter")
 
         return violations
+
+
+def _function_name(function: exp.Func) -> str:
+    """The name sqlglot knows it by; for a function it has no type for, the name as written."""
+    name = function.name if isinstance(function, exp.Anonymous) else function.sql_name()
+
+    return (name or type(function).__name__).lower()

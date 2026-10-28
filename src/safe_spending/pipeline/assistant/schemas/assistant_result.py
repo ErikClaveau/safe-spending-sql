@@ -6,6 +6,7 @@ from safe_spending.pipeline.assistant.schemas.assistant_outcome import Assistant
 from safe_spending.pipeline.assistant.schemas.assistant_round import AssistantRound
 from safe_spending.pipeline.execution import ExecutionResult
 from safe_spending.pipeline.generation import GenerationResult
+from safe_spending.pipeline.synthesis import SynthesisResult
 from safe_spending.pipeline.validation import ValidationResult
 
 
@@ -27,6 +28,7 @@ class AssistantResult(BaseModel):
     validation: ValidationResult | None = Field(default=None, description="Only if the model wrote SQL.")
     execution: ExecutionResult | None = Field(default=None, description="Only if the SQL passed validation.")
     corrections: tuple[AssistantRound, ...] = Field(default=(), description="Earlier tries, oldest first.")
+    synthesis: SynthesisResult | None = Field(default=None, description="Only if the query ran and a synthesizer is set.")
 
     @computed_field
     @property
@@ -42,9 +44,17 @@ class AssistantResult(BaseModel):
 
     @computed_field
     @property
+    def answer(self) -> str | None:
+        """The text for the user, when a synthesizer wrote it."""
+        return self.synthesis.answer if self.synthesis else None
+
+    @computed_field
+    @property
     def cost_usd(self) -> Decimal | None:
-        """Total over every try; None if any of them has no known price."""
+        """Total over every try and the synthesis; None if any of them has no known price."""
         costs = [generation.cost_usd for generation in self._generations()]
+        if self.synthesis:
+            costs.append(self.synthesis.cost_usd)
         if any(cost is None for cost in costs):
             return None
 
@@ -58,6 +68,7 @@ class AssistantResult(BaseModel):
         return (
                 sum(generation.latency_s for generation in self._generations())
                 + sum(execution.latency_s for execution in executions if execution)
+                + (self.synthesis.latency_s if self.synthesis else 0.0)
         )
 
     def _generations(self) -> list[GenerationResult]:
