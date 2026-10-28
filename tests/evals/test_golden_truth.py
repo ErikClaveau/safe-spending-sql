@@ -278,3 +278,25 @@ def test_compound_filter_questions_match_the_raw_movements(results, dataset):
     assert cell(results, "GS-122") == len(purchases(dataset, 8, {"STARBUCKS"}, *year_2026, over=Decimal(5)))
     assert money(results, "GS-123") == sum(purchases(dataset, 10, {"AMAZON", "EL CORTE INGLES"}, *year_2026))
     assert money(results, "GS-130") == sum(purchases(dataset, 2, {"TICKETMASTER", "YELMO"}, date(2025, 1, 1), date(2026, 1, 1)))
+
+
+def test_income_and_savings_questions_match_the_raw_movements(results, dataset):
+    year_2025 = (date(2025, 1, 1), date(2026, 1, 1))
+    assert money(results, "GS-134") == income(dataset, 11, *year_2025)
+    assert money(results, "GS-135") == income(dataset, 12, *year_2025) - spending(dataset, 12, *year_2025)
+    assert money(results, "GS-136") == income(dataset, 13, date(2026, 8, 1), date(2026, 9, 1)) - spending(
+        dataset, 13, date(2026, 8, 1), date(2026, 9, 1))
+    assert money(results, "GS-141") == (spending(dataset, 10, *year_2025) / 12).quantize(Decimal("0.01"))
+    assert money(results, "GS-152") == income(dataset, 10, date(2026, 1, 1), date(2026, 9, 1))
+
+
+def test_the_recent_user_has_spent_more_than_they_have_earned(results, dataset):
+    everything = (date(2000, 1, 1), date(2100, 1, 1))
+    assert money(results, "GS-143") == income(dataset, 3, *everything) - spending(dataset, 3, *everything)
+    assert money(results, "GS-143") < 0
+
+
+def test_the_february_pay_is_late_so_february_has_no_income(results, dataset):
+    assert income(dataset, 6, date(2026, 2, 1), date(2026, 3, 1)) == 0
+    assert income(dataset, 6, date(2026, 3, 1), date(2026, 4, 1)) == 2 * Decimal("2500.00")
+    assert cell(results, "GS-147") == "0"

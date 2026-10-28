@@ -1904,3 +1904,254 @@ questions:
       WHERE medio_pago = 'Tarjeta' AND gasto_eur BETWEEN 5 AND 15
         AND fecha >= '2026-08-01' AND fecha < '2026-09-01'
       LIMIT 1
+
+  # ---------------------------------------------------------------------------------------------
+  # Ingresos frente a gastos, tanda 2 (semana 5): sobrante, ahorro, medias y porcentajes con el periodo escrito.
+  # ---------------------------------------------------------------------------------------------
+  - id: GS-134
+    question: "¿Cuánto ingresé en total en 2025?"
+    user_id: 11
+    category: ingresos_vs_gastos
+    difficulty: facil
+    behavior: answer
+    reference_sql: |
+      SELECT SUM(ingreso_eur) AS ingresos
+      FROM v_ingresos
+      WHERE fecha >= '2025-01-01' AND fecha < '2026-01-01'
+      LIMIT 1
+
+  - id: GS-135
+    question: "¿Cuánto me sobró en 2025 entre lo que ingresé y lo que gasté?"
+    user_id: 12
+    category: ingresos_vs_gastos
+    difficulty: media
+    behavior: answer
+    notes: "Ingresos menos gasto neto (devoluciones restadas), sin los traspasos entre cuentas propias."
+    reference_sql: |
+      SELECT (SELECT SUM(ingreso_eur) FROM v_ingresos WHERE fecha >= '2025-01-01' AND fecha < '2026-01-01')
+             - (SELECT SUM(gasto_eur) FROM v_gastos WHERE fecha >= '2025-01-01' AND fecha < '2026-01-01') AS sobrante
+      LIMIT 1
+
+  - id: GS-136
+    question: "¿Cuánto me sobró en agosto de 2026 entre lo que ingresé y lo que gasté?"
+    user_id: 13
+    category: ingresos_vs_gastos
+    difficulty: media
+    behavior: answer
+    reference_sql: |
+      SELECT (SELECT SUM(ingreso_eur) FROM v_ingresos WHERE fecha >= '2026-08-01' AND fecha < '2026-09-01')
+             - (SELECT SUM(gasto_eur) FROM v_gastos WHERE fecha >= '2026-08-01' AND fecha < '2026-09-01') AS sobrante
+      LIMIT 1
+
+  - id: GS-137
+    question: "¿Qué porcentaje de mi nómina de agosto de 2026 gasté? Redondea a un decimal."
+    user_id: 14
+    category: ingresos_vs_gastos
+    difficulty: dificil
+    behavior: answer
+    notes: "Gasto neto de todo el mes entre la nómina de ese mes."
+    reference_sql: |
+      SELECT ROUND(100.0 * (SELECT SUM(gasto_eur) FROM v_gastos WHERE fecha >= '2026-08-01' AND fecha < '2026-09-01')
+                    / (SELECT SUM(ingreso_eur) FROM v_ingresos WHERE fecha >= '2026-08-01' AND fecha < '2026-09-01'
+                       AND categoria = 'Nómina'), 1) AS porcentaje
+      LIMIT 1
+
+  - id: GS-138
+    question: "¿En cuántos meses de 2025 gasté menos de lo que ingresé?"
+    user_id: 15
+    category: ingresos_vs_gastos
+    difficulty: media
+    behavior: answer
+    reference_sql: |
+      SELECT COUNT(*) AS meses
+      FROM (
+        SELECT mes, SUM(ing) AS ing, SUM(gas) AS gas
+        FROM (
+          SELECT to_char(fecha, 'YYYY-MM') AS mes, ingreso_eur AS ing, 0 AS gas FROM v_ingresos WHERE fecha >= '2025-01-01' AND fecha < '2026-01-01'
+          UNION ALL
+          SELECT to_char(fecha, 'YYYY-MM'), 0, gasto_eur FROM v_gastos WHERE fecha >= '2025-01-01' AND fecha < '2026-01-01'
+        ) t
+        GROUP BY mes
+      ) m
+      WHERE gas < ing
+      LIMIT 1
+
+  - id: GS-139
+    question: "¿Cuánto ingresé en junio de 2025?"
+    user_id: 8
+    category: ingresos_vs_gastos
+    difficulty: facil
+    behavior: answer
+    notes: "Junio incluye la paga extra."
+    reference_sql: |
+      SELECT SUM(ingreso_eur) AS ingresos
+      FROM v_ingresos
+      WHERE fecha >= '2025-06-01' AND fecha < '2025-07-01'
+      LIMIT 1
+
+  - id: GS-140
+    question: "¿En qué mes de 2025 ahorré más?"
+    user_id: 9
+    category: ingresos_vs_gastos
+    difficulty: media
+    behavior: answer
+    notes: "Diciembre: la paga extra. Ahorro = ingresos menos gasto neto del mes."
+    reference_sql: |
+      SELECT mes, ing - gas AS ahorro
+      FROM (
+        SELECT mes, SUM(ing) AS ing, SUM(gas) AS gas
+        FROM (
+          SELECT to_char(fecha, 'YYYY-MM') AS mes, ingreso_eur AS ing, 0 AS gas FROM v_ingresos WHERE fecha >= '2025-01-01' AND fecha < '2026-01-01'
+          UNION ALL
+          SELECT to_char(fecha, 'YYYY-MM'), 0, gasto_eur FROM v_gastos WHERE fecha >= '2025-01-01' AND fecha < '2026-01-01'
+        ) t
+        GROUP BY mes
+      ) m
+      ORDER BY ahorro DESC
+      LIMIT 1
+
+  - id: GS-141
+    question: "¿Cuánto gasté de media al mes en 2025? Divide el total entre 12 y redondea a dos decimales."
+    user_id: 10
+    category: ingresos_vs_gastos
+    difficulty: media
+    behavior: answer
+    reference_sql: |
+      SELECT ROUND((SELECT SUM(gasto_eur) FROM v_gastos WHERE fecha >= '2025-01-01' AND fecha < '2026-01-01') / 12, 2) AS gasto_medio_mensual
+      LIMIT 1
+
+  - id: GS-142
+    question: "¿Cuánto ingresé de media al mes en 2025? Divide el total entre 12 y redondea a dos decimales."
+    user_id: 11
+    category: ingresos_vs_gastos
+    difficulty: media
+    behavior: answer
+    reference_sql: |
+      SELECT ROUND((SELECT SUM(ingreso_eur) FROM v_ingresos WHERE fecha >= '2025-01-01' AND fecha < '2026-01-01') / 12, 2) AS ingreso_medio_mensual
+      LIMIT 1
+
+  - id: GS-143
+    question: "¿Cuánto he ahorrado desde que me di de alta?"
+    user_id: 3
+    category: ingresos_vs_gastos
+    difficulty: dificil
+    behavior: answer
+    scenario_id: "003-recent_signup"
+    notes: "Historial corto a propósito (alta reciente). El resultado es negativo: ha gastado más de lo que ha ingresado, y la respuesta debe decirlo."
+    reference_sql: |
+      SELECT (SELECT SUM(ingreso_eur) FROM v_ingresos)
+             - (SELECT SUM(gasto_eur) FROM v_gastos) AS ahorro
+      LIMIT 1
+
+  - id: GS-144
+    question: "¿Qué porcentaje de mis ingresos de 2025 se fue en alquiler? Redondea a un decimal."
+    user_id: 1
+    category: ingresos_vs_gastos
+    difficulty: media
+    behavior: answer
+    reference_sql: |
+      SELECT ROUND(100.0 * (SELECT SUM(gasto_eur) FROM v_gastos
+                            WHERE categoria = 'Alquiler' AND fecha >= '2025-01-01' AND fecha < '2026-01-01')
+                    / (SELECT SUM(ingreso_eur) FROM v_ingresos WHERE fecha >= '2025-01-01' AND fecha < '2026-01-01'), 1) AS porcentaje
+      LIMIT 1
+
+  - id: GS-145
+    question: "¿Cuánto ingresé y cuánto gasté en el primer trimestre de 2026?"
+    user_id: 2
+    category: ingresos_vs_gastos
+    difficulty: media
+    behavior: answer
+    scenario_id: "002-job_change"
+    notes: "Primer trimestre: todavía con la empresa anterior."
+    reference_sql: |
+      SELECT (SELECT SUM(ingreso_eur) FROM v_ingresos WHERE fecha >= '2026-01-01' AND fecha < '2026-04-01') AS ingresos,
+             (SELECT SUM(gasto_eur) FROM v_gastos WHERE fecha >= '2026-01-01' AND fecha < '2026-04-01') AS gastos
+      LIMIT 1
+
+  - id: GS-146
+    question: "¿Gasté más de lo que ingresé en octubre de 2025?"
+    user_id: 5
+    category: ingresos_vs_gastos
+    difficulty: media
+    behavior: answer
+    scenario_id: "005-anomalous_month"
+    notes: "Octubre de 2025 es el mes anómalo: la compra grande de electrónica hace que gaste más de lo que ingresa."
+    reference_sql: |
+      SELECT (SELECT SUM(ingreso_eur) FROM v_ingresos WHERE fecha >= '2025-10-01' AND fecha < '2025-11-01') AS ingresos,
+             (SELECT SUM(gasto_eur) FROM v_gastos WHERE fecha >= '2025-10-01' AND fecha < '2025-11-01') AS gastos
+      LIMIT 1
+
+  - id: GS-147
+    question: "¿Cuánto cobré de nómina en febrero de 2026?"
+    user_id: 6
+    category: ingresos_vs_gastos
+    difficulty: dificil
+    behavior: answer
+    notes: "La nómina de febrero cae en sábado y se cobra el 2 de marzo: febrero tiene gasto pero ningún ingreso, y la respuesta es 0 (no «sin datos»)."
+    reference_sql: |
+      SELECT COALESCE(SUM(ingreso_eur), 0) AS nomina
+      FROM v_ingresos
+      WHERE categoria = 'Nómina'
+        AND fecha >= '2026-02-01' AND fecha < '2026-03-01'
+      LIMIT 1
+
+  - id: GS-148
+    question: "¿Cuánto ingresé en el segundo semestre de 2025?"
+    user_id: 12
+    category: ingresos_vs_gastos
+    difficulty: facil
+    behavior: answer
+    reference_sql: |
+      SELECT SUM(ingreso_eur) AS ingresos
+      FROM v_ingresos
+      WHERE fecha >= '2025-07-01' AND fecha < '2026-01-01'
+      LIMIT 1
+
+  - id: GS-149
+    question: "¿Cuánto ahorré de media al mes en 2025? Divide el total entre 12 y redondea a dos decimales."
+    user_id: 13
+    category: ingresos_vs_gastos
+    difficulty: media
+    behavior: answer
+    reference_sql: |
+      SELECT ROUND(((SELECT SUM(ingreso_eur) FROM v_ingresos WHERE fecha >= '2025-01-01' AND fecha < '2026-01-01')
+                    - (SELECT SUM(gasto_eur) FROM v_gastos WHERE fecha >= '2025-01-01' AND fecha < '2026-01-01')) / 12, 2) AS ahorro_medio_mensual
+      LIMIT 1
+
+  - id: GS-150
+    question: "¿Qué porcentaje de lo que ingresé en 2025 ahorré? Redondea a un decimal."
+    user_id: 14
+    category: ingresos_vs_gastos
+    difficulty: dificil
+    behavior: answer
+    reference_sql: |
+      SELECT ROUND(100.0 * ((SELECT SUM(ingreso_eur) FROM v_ingresos WHERE fecha >= '2025-01-01' AND fecha < '2026-01-01')
+                          - (SELECT SUM(gasto_eur) FROM v_gastos WHERE fecha >= '2025-01-01' AND fecha < '2026-01-01'))
+                    / (SELECT SUM(ingreso_eur) FROM v_ingresos WHERE fecha >= '2025-01-01' AND fecha < '2026-01-01'), 1) AS porcentaje_ahorrado
+      LIMIT 1
+
+  - id: GS-151
+    question: "¿Cuánto cobré de nómina en junio de 2026, contando la paga extra?"
+    user_id: 15
+    category: ingresos_vs_gastos
+    difficulty: facil
+    behavior: answer
+    reference_sql: |
+      SELECT SUM(ingreso_eur) AS nomina
+      FROM v_ingresos
+      WHERE categoria = 'Nómina'
+        AND fecha >= '2026-06-01' AND fecha < '2026-07-01'
+      LIMIT 1
+
+  - id: GS-152
+    question: "¿Cuánto cobré de nómina de enero a agosto de 2026?"
+    user_id: 10
+    category: ingresos_vs_gastos
+    difficulty: facil
+    behavior: answer
+    reference_sql: |
+      SELECT SUM(ingreso_eur) AS nomina
+      FROM v_ingresos
+      WHERE categoria = 'Nómina'
+        AND fecha >= '2026-01-01' AND fecha < '2026-09-01'
+      LIMIT 1

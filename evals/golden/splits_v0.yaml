@@ -50,3 +50,10 @@ test:
   - GS-127
   - GS-130
   - GS-133
+  # Added in week 5 with GS-134..GS-152 (ingresos_vs_gastos), derived by the same rule:
+  - GS-136
+  - GS-139
+  - GS-142
+  - GS-145
+  - GS-148
+  - GS-151

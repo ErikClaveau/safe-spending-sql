@@ -78,6 +78,12 @@ Se añaden 19 de `filtro_compuesto` (GS-115 a GS-133, 7 de ellas de *test*), con
 - **18 de las 19 nuevas aciertan.** La que falla, GS-125 («compras de más de 100 euros de lunes a viernes»), era un **error de mi referencia**: contaba también el alquiler y los recibos (15), mientras que una compra es un pago con tarjeta según la documentación de la vista (6). El modelo aplicó la definición del proyecto. La referencia se corrigió después de ver el fallo y la nota de la pregunta lo dice; no se ha vuelto a medir porque la API alcanzó su límite de uso (hasta el 2026-11-01). Con la referencia corregida la respuesta del modelo (6) coincide, es decir, 122/133 (91,7 %), pero la cifra medida es 121/133.
 - Los 11 fallos restantes son los 7 de referencia estricta de siempre (GS-033, 041, 046, 049, 050, 052, 086) y los 4 de forma de recurrentes de la tanda anterior (GS-091, 097, 106, 109); GS-100 acertó esta vez.
 - Las pruebas contra movimientos crudos cubren cuatro de las nuevas (GS-121, 122, 123 y 130).
+### Tercera tanda: 152 preguntas (sin medir)
+
+Se añaden 19 de `ingresos_vs_gastos` (GS-134 a GS-152, 6 de ellas de *test*): ingresos totales, sobrante, ahorro, medias mensuales y porcentajes, con el periodo y el redondeo escritos. **No se han medido con el asistente**: la API alcanzó su límite de uso (hasta el 2026-11-01). Las respuestas esperadas sí están contrastadas con los movimientos crudos del generador (GS-134, 135, 136, 141, 143, 147 y 152).
+
+- **Un caso que sale de los datos y no de la pregunta.** El usuario 6 no cobra nada en febrero de 2026: el 28 cae en sábado y la nómina entra el 2 de marzo, así que marzo tiene dos. «¿En qué mes ahorré menos?» habría premiado ese desplazamiento, no el gasto del usuario, y la descarté. GS-147 pregunta por la nómina de febrero y la respuesta es 0 (hay movimientos ese mes, no «sin datos»). Es una consecuencia de que `fecha` sea la fecha de cargo (ADR-008).
+- El gate de CI del golden (`test_eval_gate.py`) exige una ejecución que cubra todas las preguntas del set: hasta que se mida de nuevo las 152, queda omitido en local.
 ## Ruido y contaminación
 
 Cada fila es una ejecución y el modelo no es determinista: el error estándar es de unos 3 puntos sobre 90 preguntas, y cada fila tiene entre uno y tres cambios que son ruido (GS-053 en la fila 1, GS-055 en la 3). Las diferencias de uno o dos puntos no son concluyentes. Para fiarse de una mejora pequeña hay que repetir con `--epochs 3`.
