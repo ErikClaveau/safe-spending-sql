@@ -1,12 +1,13 @@
 """What every Inspect task of this project shares: the assistant under test and the solver that runs it."""
 
 from datetime import date
+from pathlib import Path
 
 import anyio
 from anthropic import Anthropic
 from inspect_ai.solver import Generate, TaskState, solver
 
-from safe_spending.clock import FixedClock
+from safe_spending.clock import FixedClock, SystemClock
 from safe_spending.evals.golden.dataset import GOLDEN_DATABASE
 from safe_spending.evals.harness.schemas import AssistantRun
 from safe_spending.pipeline.assistant import Assistant
@@ -15,6 +16,7 @@ from safe_spending.pipeline.generation import LLMSQLGenerator
 from safe_spending.pipeline.llm import AnthropicLLMProvider
 from safe_spending.pipeline.schema import PostgresSchemaProvider
 from safe_spending.pipeline.synthesis import LLMAnswerSynthesizer
+from safe_spending.pipeline.tracing import JsonlTraceSink, trace_context_from_environment
 from safe_spending.pipeline.validation import SqlglotSQLValidator
 from safe_spending.pipeline.verification import ResultNumberVerifier
 
@@ -22,6 +24,8 @@ DEFAULT_MODEL = "claude-sonnet-5-5"
 EFFORT = "medium"
 MAX_ATTEMPTS = 3
 RESULT_KEY = "assistant_result"
+TRACE_DIR = Path("logs/traces")
+EVAL_USER_SALT = "eval-synthetic-users"  # the eval users are synthetic: no secret needed
 
 
 def build_assistant(
@@ -29,12 +33,15 @@ def build_assistant(
         prompt_version: str,
         max_corrections: int,
         reference_date: date,
-        synthesize: bool = False
+        synthesize: bool = False,
+        trace_dir: Path | None = TRACE_DIR
 ) -> tuple[Assistant, str]:
     """The assistant over the reference database, and the version of the schema it shows the model.
 
     With `synthesize` it also writes the answer text from the result (same model and protocol as the SQL),
-    and every number in that text is checked against the result."""
+    and every number in that text is checked against the result. Every question is also traced to a JSONL
+    file in `trace_dir` (ADR-007; `None` turns it off); the file is named after the real date, not the
+    frozen one of the dataset."""
     schema_provider = PostgresSchemaProvider(dbname=GOLDEN_DATABASE)
     llm = AnthropicLLMProvider(
         client=Anthropic(),
@@ -59,6 +66,11 @@ def build_assistant(
             clock=clock,
             verifier=ResultNumberVerifier()
         ) if synthesize else None,
+        trace_sink=JsonlTraceSink(
+            directory=trace_dir,
+            clock=SystemClock()
+        ) if trace_dir else None,
+        trace_context=trace_context_from_environment(default_salt=EVAL_USER_SALT) if trace_dir else None,
     )
 
     return assistant, schema_provider.get_schema().version

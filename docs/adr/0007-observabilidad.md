@@ -53,6 +53,6 @@ El plan (§10) pide una traza por petición con: identificador de la petición, 
 
 1. [x] Puerto `TraceSink` y modelos `RequestTrace` y `TraceContext` (traza + metadatos), en `pipeline/assistant/` porque los define y consume el `Assistant`; los adaptadores viven en `pipeline/tracing/`.
 2. [x] Adaptador JSONL, con test que comprueba que el `user_id` no llega al fichero y que la línea contiene el resultado completo. La línea no se vuelve a cargar en el modelo: incluye los campos calculados (coste, latencia, SQL), que el modelo rechaza al entrar. Es para leer, no para reconstruir.
-3. [x] `Assistant` recibe `trace_sink` y `trace_context` (van juntos); añade `request_id` y el pseudónimo; un sumidero que falla se registra y no cambia la respuesta. Pendiente: pasar el `commit_sha` y la sal desde la configuración de la API y de las evals, que aún no los construyen.
+3. [x] `Assistant` recibe `trace_sink` y `trace_context` (van juntos); añade `request_id` y el pseudónimo; un sumidero que falla se registra y no cambia la respuesta. El `commit_sha` sale de `COMMIT_SHA` o de git (con `-dirty` si hay cambios sin commitear) y la sal de `TRACE_USER_SALT` (`pipeline/tracing/trace_context.py`). Las tareas de Inspect ya trazan a `logs/traces/` con una sal fija, porque sus usuarios son sintéticos; la API, que aún no existe, deberá exigir la variable.
 4. [ ] Adaptador OpenTelemetry/Phoenix y perfil de Docker Compose (opcional, solo si sobra tiempo tras la demo).
 5. [x] §12, §11 y el changelog del plan actualizados.
