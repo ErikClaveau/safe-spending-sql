@@ -65,6 +65,19 @@ Se añaden 24 preguntas de `recurrentes` (GS-091 a GS-114, 8 de ellas de *test*)
 - **Las 90 originales dan 83/90**, una más que en la fila 6: GS-055 acertó (era ruido). Los 7 fallos son los de referencia estricta de siempre.
 - **Cinco de veinticuatro es una señal, no un problema de referencia**: las preguntas se escribieron para tener una respuesta inequívoca. Es un candidato a la siguiente ronda (se decide solo con las de *dev*), por ejemplo una regla de prompt «si la pregunta pide un dato, responde con una fila». Ya hubo una regla parecida en la fila 2 («devuelve solo las columnas pedidas») y rompió ocho preguntas, así que habría que medirla con `--epochs 3`.
 - Cada respuesta nueva se contrastó con una vía que no usa las vistas (parámetros de escenario y movimientos crudos) en `tests/evals/test_golden_truth.py`.
+
+### Segunda tanda: 133 preguntas
+
+Se añaden 19 de `filtro_compuesto` (GS-115 a GS-133, 7 de ellas de *test*), con varios filtros a la vez.
+
+| Set | Tolerante (todas) | dev | test | Estricta | Coste |
+|---|---|---|---|---|---|
+| 133 preguntas | 91,0 % (121/133) | 89,1 % (82/92) | 95,1 % (39/41) | 71,4 % | $1,74 |
+| Filtro compuesto (27) | 92,6 % (25/27) | | | | |
+
+- **18 de las 19 nuevas aciertan.** La que falla, GS-125 («compras de más de 100 euros de lunes a viernes»), era un **error de mi referencia**: contaba también el alquiler y los recibos (15), mientras que una compra es un pago con tarjeta según la documentación de la vista (6). El modelo aplicó la definición del proyecto. La referencia se corrigió después de ver el fallo y la nota de la pregunta lo dice; no se ha vuelto a medir porque la API alcanzó su límite de uso (hasta el 2026-11-01). Con la referencia corregida la respuesta del modelo (6) coincide, es decir, 122/133 (91,7 %), pero la cifra medida es 121/133.
+- Los 11 fallos restantes son los 7 de referencia estricta de siempre (GS-033, 041, 046, 049, 050, 052, 086) y los 4 de forma de recurrentes de la tanda anterior (GS-091, 097, 106, 109); GS-100 acertó esta vez.
+- Las pruebas contra movimientos crudos cubren cuatro de las nuevas (GS-121, 122, 123 y 130).
 ## Ruido y contaminación
 
 Cada fila es una ejecución y el modelo no es determinista: el error estándar es de unos 3 puntos sobre 90 preguntas, y cada fila tiene entre uno y tres cambios que son ruido (GS-053 en la fila 1, GS-055 en la 3). Las diferencias de uno o dos puntos no son concluyentes. Para fiarse de una mejora pequeña hay que repetir con `--epochs 3`.

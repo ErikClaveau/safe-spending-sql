@@ -1647,3 +1647,260 @@ questions:
       WHERE comercio = 'BASIC-FIT'
         AND fecha >= '2026-01-01' AND fecha < '2027-01-01'
       LIMIT 1
+
+  # ---------------------------------------------------------------------------------------------
+  # Filtro compuesto, tanda 2 (semana 5): varios filtros a la vez (importe, día de la semana, comercio, periodo).
+  # ---------------------------------------------------------------------------------------------
+  - id: GS-115
+    question: "¿Cuántas compras con tarjeta de más de 20 euros hice en supermercados en 2025?"
+    user_id: 8
+    category: filtro_compuesto
+    difficulty: media
+    behavior: answer
+    reference_sql: |
+      SELECT COUNT(*) AS compras
+      FROM v_gastos
+      WHERE categoria = 'Supermercados' AND medio_pago = 'Tarjeta'
+        AND gasto_eur > 20
+        AND fecha >= '2025-01-01' AND fecha < '2026-01-01'
+      LIMIT 1
+
+  - id: GS-116
+    question: "¿Cuánto gasté en restaurantes y bares los sábados y domingos de julio de 2026?"
+    user_id: 9
+    category: filtro_compuesto
+    difficulty: media
+    behavior: answer
+    reference_sql: |
+      SELECT SUM(gasto_eur) AS gasto_total
+      FROM v_gastos
+      WHERE categoria = 'Restaurantes y bares'
+        AND EXTRACT(DOW FROM fecha) IN (0, 6)
+        AND fecha >= '2026-07-01' AND fecha < '2026-08-01'
+      LIMIT 1
+
+  - id: GS-117
+    question: "¿Cuánto gasté en taxi y VTC en 2025, contando solo los viajes de más de 10 euros?"
+    user_id: 10
+    category: filtro_compuesto
+    difficulty: media
+    behavior: answer
+    reference_sql: |
+      SELECT SUM(gasto_eur) AS gasto_total
+      FROM v_gastos
+      WHERE categoria = 'Taxi y VTC' AND gasto_eur > 10
+        AND fecha >= '2025-01-01' AND fecha < '2026-01-01'
+      LIMIT 1
+
+  - id: GS-118
+    question: "¿Cuántos recibos de más de 30 euros pagué en 2025?"
+    user_id: 11
+    category: filtro_compuesto
+    difficulty: media
+    behavior: answer
+    reference_sql: |
+      SELECT COUNT(*) AS recibos
+      FROM v_gastos
+      WHERE medio_pago = 'Recibo' AND gasto_eur > 30
+        AND fecha >= '2025-01-01' AND fecha < '2026-01-01'
+      LIMIT 1
+
+  - id: GS-119
+    question: "¿Cuánto gasté en comida a domicilio de lunes a jueves en 2026?"
+    user_id: 12
+    category: filtro_compuesto
+    difficulty: media
+    behavior: answer
+    reference_sql: |
+      SELECT SUM(gasto_eur) AS gasto_total
+      FROM v_gastos
+      WHERE categoria = 'Comida a domicilio'
+        AND EXTRACT(DOW FROM fecha) IN (1, 2, 3, 4)
+        AND fecha >= '2026-01-01' AND fecha < '2027-01-01'
+      LIMIT 1
+
+  - id: GS-120
+    question: "¿Cuál fue mi compra más grande en electrónica en 2025?"
+    user_id: 13
+    category: filtro_compuesto
+    difficulty: media
+    behavior: answer
+    reference_sql: |
+      SELECT fecha, comercio, gasto_eur
+      FROM v_gastos
+      WHERE categoria = 'Electrónica'
+        AND fecha >= '2025-01-01' AND fecha < '2026-01-01'
+      ORDER BY gasto_eur DESC
+      LIMIT 1
+
+  - id: GS-121
+    question: "¿Cuánto gasté en total entre Zara y Pull&Bear en 2026, contando solo compras de más de 50 euros?"
+    user_id: 14
+    category: filtro_compuesto
+    difficulty: media
+    behavior: answer
+    reference_sql: |
+      SELECT SUM(gasto_eur) AS gasto_total
+      FROM v_gastos
+      WHERE comercio IN ('ZARA', 'PULL&BEAR') AND gasto_eur > 50
+        AND fecha >= '2026-01-01' AND fecha < '2027-01-01'
+      LIMIT 1
+
+  - id: GS-122
+    question: "¿Cuántas veces gasté más de 5 euros en Starbucks en 2026?"
+    user_id: 8
+    category: filtro_compuesto
+    difficulty: facil
+    behavior: answer
+    reference_sql: |
+      SELECT COUNT(*) AS veces
+      FROM v_gastos
+      WHERE comercio = 'STARBUCKS' AND gasto_eur > 5
+        AND fecha >= '2026-01-01' AND fecha < '2027-01-01'
+      LIMIT 1
+
+  - id: GS-123
+    question: "¿Cuánto he comprado en total entre Amazon y El Corte Inglés en 2026, sin contar las devoluciones?"
+    user_id: 10
+    category: filtro_compuesto
+    difficulty: dificil
+    behavior: answer
+    notes: "Las devoluciones son gastos negativos: se excluyen con gasto_eur > 0, no se restan."
+    reference_sql: |
+      SELECT SUM(gasto_eur) AS compras_total
+      FROM v_gastos
+      WHERE comercio IN ('AMAZON', 'EL CORTE INGLES') AND gasto_eur > 0
+        AND fecha >= '2026-01-01' AND fecha < '2027-01-01'
+      LIMIT 1
+
+  - id: GS-124
+    question: "¿Cuánto gasté en total en supermercados y comida a domicilio en marzo de 2026?"
+    user_id: 12
+    category: filtro_compuesto
+    difficulty: media
+    behavior: answer
+    reference_sql: |
+      SELECT SUM(gasto_eur) AS gasto_total
+      FROM v_gastos
+      WHERE categoria IN ('Supermercados', 'Comida a domicilio')
+        AND fecha >= '2026-03-01' AND fecha < '2026-04-01'
+      LIMIT 1
+
+  - id: GS-125
+    question: "¿Cuántas compras de más de 100 euros hice de lunes a viernes en 2026?"
+    user_id: 13
+    category: filtro_compuesto
+    difficulty: media
+    behavior: answer
+    notes: "Una compra es un pago con tarjeta (ADR-005): el alquiler y los recibos de más de 100 euros no cuentan. La primera referencia los contaba y daba 15; se corrigió tras la primera medición."
+    reference_sql: |
+      SELECT COUNT(*) AS compras
+      FROM v_gastos
+      WHERE medio_pago = 'Tarjeta' AND gasto_eur > 100
+        AND EXTRACT(DOW FROM fecha) IN (1, 2, 3, 4, 5)
+        AND fecha >= '2026-01-01' AND fecha < '2027-01-01'
+      LIMIT 1
+
+  - id: GS-126
+    question: "¿Cuánto gasté en ocio y cultura en el último trimestre de 2025, contando solo compras de más de 15 euros?"
+    user_id: 9
+    category: filtro_compuesto
+    difficulty: media
+    behavior: answer
+    reference_sql: |
+      SELECT SUM(gasto_eur) AS gasto_total
+      FROM v_gastos
+      WHERE categoria = 'Ocio y cultura' AND gasto_eur > 15
+        AND fecha >= '2025-10-01' AND fecha < '2026-01-01'
+      LIMIT 1
+
+  - id: GS-127
+    question: "¿En cuántos días distintos compré en supermercados en agosto de 2026?"
+    user_id: 11
+    category: filtro_compuesto
+    difficulty: media
+    behavior: answer
+    reference_sql: |
+      SELECT COUNT(DISTINCT fecha) AS dias
+      FROM v_gastos
+      WHERE categoria = 'Supermercados'
+        AND fecha >= '2026-08-01' AND fecha < '2026-09-01'
+      LIMIT 1
+
+  - id: GS-128
+    question: "¿Cuál fue el importe medio de mis compras en farmacia en 2025? Redondea a dos decimales."
+    user_id: 14
+    category: filtro_compuesto
+    difficulty: dificil
+    behavior: answer
+    reference_sql: |
+      SELECT ROUND(AVG(gasto_eur), 2) AS importe_medio
+      FROM v_gastos
+      WHERE categoria = 'Farmacia' AND gasto_eur > 0
+        AND fecha >= '2025-01-01' AND fecha < '2026-01-01'
+      LIMIT 1
+
+  - id: GS-129
+    question: "¿Cuántas compras de viajes y alojamiento de más de 200 euros he hecho?"
+    user_id: 15
+    category: filtro_compuesto
+    difficulty: facil
+    behavior: answer
+    reference_sql: |
+      SELECT COUNT(*) AS compras
+      FROM v_gastos
+      WHERE categoria = 'Viajes y alojamiento' AND gasto_eur > 200
+      LIMIT 1
+
+  - id: GS-130
+    question: "¿Cuánto gasté en total en Ticketmaster y Yelmo en 2025?"
+    user_id: 2
+    category: filtro_compuesto
+    difficulty: media
+    behavior: answer
+    reference_sql: |
+      SELECT SUM(gasto_eur) AS gasto_total
+      FROM v_gastos
+      WHERE comercio IN ('TICKETMASTER', 'YELMO')
+        AND fecha >= '2025-01-01' AND fecha < '2026-01-01'
+      LIMIT 1
+
+  - id: GS-131
+    question: "¿Qué compras de ropa y calzado de más de 60 euros hice en 2026?"
+    user_id: 8
+    category: filtro_compuesto
+    difficulty: media
+    behavior: answer
+    reference_sql: |
+      SELECT fecha, comercio, gasto_eur
+      FROM v_gastos
+      WHERE categoria = 'Ropa y calzado' AND gasto_eur > 60
+        AND fecha >= '2026-01-01' AND fecha < '2027-01-01'
+      ORDER BY fecha
+      LIMIT 20
+
+  - id: GS-132
+    question: "¿Cuánto gasté en taxi y transporte público en verano de 2026 (junio, julio y agosto)?"
+    user_id: 13
+    category: filtro_compuesto
+    difficulty: media
+    behavior: answer
+    reference_sql: |
+      SELECT SUM(gasto_eur) AS gasto_total
+      FROM v_gastos
+      WHERE categoria IN ('Taxi y VTC', 'Transporte público')
+        AND fecha >= '2026-06-01' AND fecha < '2026-09-01'
+      LIMIT 1
+
+  - id: GS-133
+    question: "¿Cuánto gasté en compras con tarjeta de entre 5 y 15 euros en agosto de 2026?"
+    user_id: 15
+    category: filtro_compuesto
+    difficulty: media
+    behavior: answer
+    reference_sql: |
+      SELECT SUM(gasto_eur) AS gasto_total
+      FROM v_gastos
+      WHERE medio_pago = 'Tarjeta' AND gasto_eur BETWEEN 5 AND 15
+        AND fecha >= '2026-08-01' AND fecha < '2026-09-01'
+      LIMIT 1

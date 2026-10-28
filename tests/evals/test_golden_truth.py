@@ -258,3 +258,23 @@ def test_recurring_merchant_totals_match_the_raw_movements(results, dataset):
 def test_the_number_of_pays_matches_the_raw_movements(results, dataset):
     pays = [t for t in dataset.transactions if t.user_id == 2 and t.tx_code is TxCode.SALARY]
     assert cell(results, "GS-108") == len(pays)
+
+
+def purchases(dataset, user_id, merchants, start, end, over=Decimal(0)):
+    """Amounts spent (positive) at those merchants in the period, one per purchase, refunds left out."""
+    ids = {m.merchant_id for m in dataset.merchants if m.normalized_name in merchants}
+    return [
+        -t.amount_eur
+        for t in dataset.transactions
+        if t.user_id == user_id and t.merchant_id in ids and start <= t.booking_date < end
+        and t.amount_eur < 0 and -t.amount_eur > over
+    ]
+
+
+def test_compound_filter_questions_match_the_raw_movements(results, dataset):
+    year_2026 = (date(2026, 1, 1), date(2027, 1, 1))
+    zara_pull = purchases(dataset, 14, {"ZARA", "PULL&BEAR"}, *year_2026, over=Decimal(50))
+    assert money(results, "GS-121") == sum(zara_pull)
+    assert cell(results, "GS-122") == len(purchases(dataset, 8, {"STARBUCKS"}, *year_2026, over=Decimal(5)))
+    assert money(results, "GS-123") == sum(purchases(dataset, 10, {"AMAZON", "EL CORTE INGLES"}, *year_2026))
+    assert money(results, "GS-130") == sum(purchases(dataset, 2, {"TICKETMASTER", "YELMO"}, date(2025, 1, 1), date(2026, 1, 1)))

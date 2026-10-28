@@ -42,3 +42,11 @@ test:
   - GS-108
   - GS-111
   - GS-114
+  # Added in week 5 with GS-115..GS-133 (filtro_compuesto), derived by the same rule:
+  - GS-115
+  - GS-118
+  - GS-121
+  - GS-124
+  - GS-127
+  - GS-130
+  - GS-133
