@@ -12,6 +12,7 @@ Todas las filas se muestran con la **métrica vigente (M3)**, volviendo a puntua
 | 3 | Prompt v3: como v2 sin la regla de las columnas | **90,0 % (81/90)** | 89,1 % (57/64) | 92,3 % (24/26) | 70,0 % | $1,16 |
 | 4 | Autocorrección: una pasada si el validador o la base de datos rechazan el SQL | 90,0 % (81/90) | 89,1 % (57/64) | 92,3 % (24/26) | 70,0 % | $1,17 |
 | 5 | Validador con lista blanca de funciones (sin cambio de prompt) | 91,1 % (82/90) | 90,6 % (58/64) | 92,3 % (24/26) | 68,9 % | $1,16 |
+| 6 | Documentación de `divisa_original`: un viaje al extranjero son los pagos en otra divisa (migración `0004`) | 91,1 % (82/90) | 92,2 % (59/64) | 88,5 % (23/26) | 70,0 % | $1,19 |
 
 ## Versiones de la métrica
 
@@ -32,6 +33,8 @@ M2 y M3 se decidieron viendo resultados, por eso se conservan las cifras anterio
 **4. Autocorrección.** Si el validador rechaza el SQL, o la base de datos devuelve un error, el modelo ve su respuesta anterior y el motivo y la escribe de nuevo (máximo una vez; un *timeout* no se corrige). El SQL corregido pasa por el mismo validador y la misma ejecución bajo RLS. En las 90 preguntas solo una necesitó corrección: GS-043, que el modelo había escrito con `generate_series(...)` en el `FROM` y el validador rechazaba; al corregirla, acierta. El total no cambia porque GS-053 (Londres) pasó de correcta a «pide las fechas», que es ruido (en la fila 1 había pasado al revés). Coste: $0,01 más en total. Se mide con `-T max_corrections=0` frente al valor por defecto.
 
 **5. Lista blanca de funciones.** El validador pasa de una lista negra a una lista blanca de funciones (ADR-005). No es una mejora de acierto y no se presenta como tal: 82 frente a 81 aciertos está dentro del ruido (error estándar de unos 3 puntos) y la fila se mide para comprobar que **no hay regresión**. Se hizo en el CI de GitHub (Linux), no en la máquina de las filas anteriores. Antes de medir, las 444 sentencias que el modelo escribió en los logs seguían pasando por el validador; el acierto no prueba que el modelo no haya tropezado con la lista: una función rechazada y autocorregida también acaba en acierto. Falta contar en el log (`corrections` con `is not allowed`) cuántas veces ocurrió. No se han vuelto a analizar los fallos que quedan: la lista de abajo es la de la fila 4.
+
+**6. Documentación de la divisa de un viaje.** Los comentarios de `divisa_original` dicen que un viaje al extranjero se reconoce por los pagos en una divisa distinta del euro y que no hace falta preguntar las fechas (ADR-010: asumir y explicitar). Arregla GS-053 y GS-056, que pedían las fechas del viaje a Londres (con `--epochs 3` sobre esas dos, 6/6 correctas con la métrica tolerante). Rompe GS-055 (*test*): el modelo filtra las comisiones por `concepto ILIKE '%GBP%'` y suma 0, porque el concepto de la comisión no menciona la divisa. Repetida con `--epochs 3`, acierta las tres veces (la consulta incluye las comisiones de los días de pagos en libras): es ruido, como GS-053 en la fila 1, y no se cambia nada. El total no cambia (82 frente a 81 en la fila 4) y queda dentro del ruido.
 
 ## Ruido y contaminación
 
