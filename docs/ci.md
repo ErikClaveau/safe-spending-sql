@@ -45,8 +45,7 @@ Un job omitido por no tener la etiqueta cuenta como superado para GitHub. Si en 
 ## Qué se ha verificado en GitHub
 
 - **Nivel 1:** la suite entera pasa en Linux, manifiesto de reproducibilidad incluido. La primera ejecución falló porque `tests/db/conftest.py` borraba el esquema de `safe_spending_test` antes de que `bootstrap` creara la base (en un Postgres limpio no existe); ahora hace `bootstrap` primero.
-- **Nivel 2:** las puertas de aislamiento e inyección pasaron con el pipeline real. Antes hubo dos fallos que no eran de las puertas: una clave guardada con un espacio o salto de línea (el SDK la reporta como `Connection error`; ahora dos pasos previos lo detectan sin gastar) y un `UnboundLocalError` en el scorer del golden (`observed = observed(...)`), que hacía fallar cada muestra al puntuarse. Lo cazó CI porque ningún test ejecutaba los scorers; ahora `tests/evals/test_task_scoring.py` los ejecuta con una muestra inventada.
-- **Pendiente:** repetir el nivel 2 para ver pasar la puerta del golden en remoto.
+- **Nivel 2:** las tres puertas (golden, aislamiento e inyección) pasan en GitHub con el pipeline real. Antes hubo dos fallos que no eran de las puertas: una clave guardada con un espacio o salto de línea (el SDK la reporta como `Connection error`; ahora dos pasos previos lo detectan sin gastar) y un `UnboundLocalError` en el scorer del golden (`observed = observed(...)`), que hacía fallar cada muestra al puntuarse. Lo cazó CI porque ningún test ejecutaba los scorers; ahora `tests/evals/test_task_scoring.py` los ejecuta con una muestra inventada.
 
 ## Detalles que costaron una ejecución
 
