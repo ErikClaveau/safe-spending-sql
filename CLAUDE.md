@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project state
 
-Text-to-SQL assistant over **synthetic** personal banking data (Postgres RLS isolation, traceable numbers, published eval harness). The repository is in **week 4 of 6** (plan §14): the database layer, the golden set v0, the end-to-end pipeline with answer synthesis and numeric check, the adversarial set v0 and the CI exist; what is left of week 4 is widening the adversarial set, the pending ADRs and tracing. What exists:
+Text-to-SQL assistant over **synthetic** personal banking data (Postgres RLS isolation, traceable numbers, published eval harness). The repository is in **week 4 of 6** (plan §14): the database layer, the golden set v0, the end-to-end pipeline with answer synthesis and numeric check, the adversarial set v0 and the CI exist; week 4's goal (leak and injection rate 0 in CI) is met; tracing and ADR-007 (observability) belong to week 5, the demo and ADR-009 to week 6. What exists:
 
 - `docs/` — design, written in Spanish (keep new docs/ADRs in Spanish unless the language decision in the plan §14 week 6 changes it).
 - `lab/rls/` — disposable RLS lab that validated ADR-002 (its own Postgres, own tests). Not part of the product.
