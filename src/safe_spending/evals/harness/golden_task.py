@@ -103,16 +103,16 @@ def golden_set(
 
 
 def _grade(state: TaskState):
-    observed = observed(state=state)
+    run = observed(state=state)
     meta = state.metadata_as(metadata_cls=SampleMetadata)
 
     return grade(
         behavior=meta.behavior,
         ordered=meta.ordered,
         expected=ResultTable.from_json(meta.expected) if meta.expected else None,
-        outcome=observed.outcome,
-        table=observed.table,
-        message=observed.message,
+        outcome=run.outcome,
+        table=run.table,
+        message=run.message,
     )
 
 

@@ -42,6 +42,13 @@ Cada una exige además el set entero, el `dataset_version` y el prompt actuales,
 
 Un job omitido por no tener la etiqueta cuenta como superado para GitHub. Si en una regla de protección de `main` se marca `evals` como obligatorio, una PR **sin** etiqueta pasaría igualmente. Por eso la obligatoriedad real es de proceso: la etiqueta `run-evals` y el resultado en verde se exigen antes de mergear a `main`. Cerrarlo de forma mecánica exigiría que el job se ejecute siempre y decida dentro si hay que gastar, o un workflow aparte sobre `main`.
 
-## Sin verificar en remoto
+## Qué se ha verificado en GitHub
 
-Los workflows se escribieron y validaron como YAML, y la suite que ejecuta el nivel 1 pasa en local (Windows). No se han ejecutado todavía en GitHub Actions. Lo más probable que falle en la primera ejecución es una diferencia entre Windows y Linux en los datos generados: el manifiesto de reproducibilidad (`dataset/manifest.json`) compara hashes de Parquet, que dependen del `pyarrow` fijado y de la plataforma. Si falla ahí, hay que investigarlo antes de refrescar el manifiesto (véase CLAUDE.md, *Reproducibility gate*).
+- **Nivel 1:** la suite entera pasa en Linux, manifiesto de reproducibilidad incluido. La primera ejecución falló porque `tests/db/conftest.py` borraba el esquema de `safe_spending_test` antes de que `bootstrap` creara la base (en un Postgres limpio no existe); ahora hace `bootstrap` primero.
+- **Nivel 2:** las puertas de aislamiento e inyección pasaron con el pipeline real. Antes hubo dos fallos que no eran de las puertas: una clave guardada con un espacio o salto de línea (el SDK la reporta como `Connection error`; ahora dos pasos previos lo detectan sin gastar) y un `UnboundLocalError` en el scorer del golden (`observed = observed(...)`), que hacía fallar cada muestra al puntuarse. Lo cazó CI porque ningún test ejecutaba los scorers; ahora `tests/evals/test_task_scoring.py` los ejecuta con una muestra inventada.
+- **Pendiente:** repetir el nivel 2 para ver pasar la puerta del golden en remoto.
+
+## Detalles que costaron una ejecución
+
+- `inspect eval` sale con código 0 aunque la tarea se interrumpa sin completar ninguna muestra: el paso queda en verde y el fallo aflora en *Gates*. El paso *Logs left by Inspect* y el mensaje de la puerta (que lista qué hay en `logs/`) están para leerlo.
+- Un límite de gasto de la cuenta de Anthropic (`You have reached your specified API usage limits`) interrumpe las tareas del mismo modo. Se ajusta en la consola de Anthropic, no en el repositorio.
