@@ -1,4 +1,9 @@
-# Development Postgres for the assistant (ADR-001: PostgreSQL only, >= 15).
+# Development Postgres for the assistant (ADR-001: PostgreSQL only, >= 15), and the demo (ADR-009).
+#
+#   docker compose up --build        # database, dataset load, then the app at http://localhost:8501
+#
+# Needs ANTHROPIC_API_KEY in the environment or in a git-ignored .env next to this file.
+# For development without the app, `docker compose up -d --wait postgres` starts only the database.
 # Port 5434 avoids clashing with a local Postgres (5432) and the RLS lab (5433).
 # The superuser is only used by `safe-spending-bootstrap` to create roles and the
 # database; migrations run as app_owner and the API as app_reader.
@@ -18,6 +23,37 @@ services:
       interval: 2s
       timeout: 3s
       retries: 15
+
+  # One-shot: roles and schema, migrations, the official dataset, loaded as app_loader. Idempotent.
+  setup:
+    build: .
+    environment: &database
+      DB_HOST: postgres
+      DB_PORT: "5432"
+    command:
+      - sh
+      - -c
+      - >-
+        safe-spending-bootstrap
+        && alembic upgrade head
+        && safe-spending-generate
+        && safe-spending-load --reset
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  app:
+    build: .
+    environment:
+      <<: *database
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+    ports:
+      - "127.0.0.1:8501:8501"
+    volumes:
+      - ./logs:/app/logs
+    depends_on:
+      setup:
+        condition: service_completed_successfully
 
 volumes:
   pgdata:

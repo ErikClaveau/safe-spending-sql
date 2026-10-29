@@ -55,6 +55,10 @@ def user_label(user_id: int) -> str:
 
 
 def main() -> None:
+    if not os.environ.get("ANTHROPIC_API_KEY"):
+        st.error("ANTHROPIC_API_KEY is not set. Put it in a `.env` file next to docker-compose.yml, or export it.")
+        st.stop()
+
     built, schema_version, today, n_users = assistant()
     presets, expected, canaries = adversarial()
 
