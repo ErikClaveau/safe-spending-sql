@@ -1,6 +1,6 @@
 # Dataset card: safe-spending synthetic banking data
 
-> 🇪🇸 Español: `docs/es/dataset-card.md` (pendiente de traducir; ver la regla de idiomas en el plan, §18).
+> 🇪🇸 Español: [es/dataset-card.md](es/dataset-card.md)
 
 Follows the structure of *Datasheets for Datasets*. Version described: **0.5.0**. Every figure below comes from the dataset the generator produces with the committed configuration; regenerate it and the numbers must match (see *Reproducibility*).
 

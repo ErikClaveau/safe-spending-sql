@@ -1,75 +1,77 @@
 # Golden set v0
 
-El golden set es la especificación de lo que el asistente debe saber responder: preguntas en castellano sobre los usuarios de evaluación, cada una con el SQL que da la respuesta correcta sobre las vistas semánticas. Es la base de la métrica *execution accuracy* (plan §9) y de la línea base de la semana 3.
+> 🇪🇸 Español: [es/golden-set.md](es/golden-set.md)
 
-## Dónde está
+The golden set is the specification of what the assistant must be able to answer: questions in Spanish about the evaluation users, each with the SQL that gives the right answer over the semantic views. It is the base of the *execution accuracy* metric (plan §9) and of the week 3 baseline.
 
-| Fichero | Contenido |
+## Where it is
+
+| File | Contents |
 |---|---|
-| `evals/golden/golden_v0.yaml` | Las preguntas. Se editan a mano. |
-| `evals/golden/expected_v0.json` | La respuesta esperada de cada pregunta con SQL. **Se genera, no se edita a mano.** |
-| `src/safe_spending/evals/golden/` | Modelos, reglas del SQL, comparación de resultados y comando. |
-| `tests/evals/` | Los tests que lo vigilan. |
+| `evals/golden/golden_v0.yaml` | The questions. Edited by hand. |
+| `evals/golden/expected_v0.json` | The expected answer of each question with SQL. **Generated, never edited by hand.** |
+| `src/safe_spending/evals/golden/` | Models, SQL rules, result comparison and the command. |
+| `tests/evals/` | The tests that watch over it. |
 
-## Composición (v0, dataset 0.5.0)
+## Composition (v0, dataset 0.5.0)
 
-152 preguntas, 144 con SQL de referencia, todas sobre los usuarios funcionales 1-15. Las 90 primeras son el v0 original; GS-091 a GS-114 (semana 5) son 24 preguntas más de recurrentes, escritas con una cifra, una fecha o un nombre concretos y el periodo a la vista, y GS-115 a GS-133 son 19 de filtro compuesto (importe, día de la semana, comercio y periodo a la vez); GS-134 a GS-152 son 19 de ingresos frente a gastos (sobrante, ahorro, medias y porcentajes).
+152 questions, 144 with reference SQL, all about the functional users 1-15. The first 90 are the original v0; GS-091 to GS-114 (week 5) are 24 more on recurring payments, written with a concrete figure, date or name and the period in view; GS-115 to GS-133 are 19 of compound filters (amount, weekday, merchant and period at once); GS-134 to GS-152 are 19 of income versus spending (surplus, savings, averages and percentages).
 
-| Categoría | Preguntas | Comportamiento esperado |
+| Category | Questions | Expected behaviour |
 |---|---|---|
-| Agregado simple | 17 | SQL y una cifra (incluidos los ceros reales) |
-| Comparativa temporal | 9 | SQL con dos periodos |
-| Ranking | 8 | SQL con `ORDER BY` y `LIMIT` |
-| Filtro compuesto | 27 | SQL con varios filtros |
-| Ingresos frente a gastos | 28 | Agregado con signo, combinando las dos vistas |
-| Recurrentes | 33 | Suscripciones, recibos, alquiler y nómina |
-| Divisa | 6 | Pagos en libras, comisión y tipo de cambio (usuario 6) |
-| Devoluciones | 7 | Compras menos devoluciones (usuario 7 y la población) |
-| Traspasos entre cuentas propias | 5 | Que no cuentan como gasto ni como ingreso |
-| Ambigua | 4 | `clarify`: pedir aclaración o explicitar el supuesto |
-| Sin datos | 4 | `no_data`: decir que no hay datos, sin inventar |
-| Fuera de dominio | 4 | `refuse`: rechazo educado |
+| Simple aggregate | 17 | SQL and one figure (including real zeros) |
+| Temporal comparison | 9 | SQL with two periods |
+| Ranking | 8 | SQL with `ORDER BY` and `LIMIT` |
+| Compound filter | 27 | SQL with several filters |
+| Income versus spending | 28 | Signed aggregate, combining the two views |
+| Recurring | 33 | Subscriptions, direct debits, rent and pay |
+| Currency | 6 | Payments in pounds, fee and exchange rate (user 6) |
+| Refunds | 7 | Purchases minus refunds (user 7 and the population) |
+| Transfers between own accounts | 5 | That count neither as spending nor as income |
+| Ambiguous | 4 | `clarify`: ask for clarification or state the assumption |
+| No data | 4 | `no_data`: say there is no data, without inventing |
+| Out of domain | 4 | `refuse`: polite refusal |
 
-Dificultad: 36 fáciles, 89 medias y 27 difíciles. 36 preguntas están ancladas a uno de los siete escenarios guionizados. Los usuarios 1-7 tienen escenario (suscripciones, cambio de trabajo, alta reciente, categoría a cero, mes anómalo, Londres y Amazon) y los 8-15 son usuarios normales; los que tienen cuenta de ahorro se usan para los traspasos.
+Difficulty: 36 easy, 89 medium and 27 hard. 36 questions are anchored to one of the seven scripted scenarios. Users 1-7 have a scenario (subscriptions, job change, recent sign-up, zeroed category, anomalous month, London and Amazon) and 8-15 are ordinary users; those with a savings account are used for the transfers.
 
-Quedan fuera de v0, y son trabajo de las semanas siguientes: el set adversarial (aislamiento y datos con canarios, semana 4) y llegar a las 150-200 preguntas funcionales del plan.
+Left out of v0, and work for the following weeks: the adversarial set (isolation and data with canaries, week 4) and reaching the 150-200 functional questions of the plan.
 
-## Convenciones
+## Conventions
 
-- **Gasto neto.** "Gasté" es `v_gastos.gasto_eur`, donde las devoluciones cuentan en negativo (ADR-005).
-- **"Hoy" es 2026-09-15.** "Este año" es 2026, "el mes pasado" es agosto de 2026, "este trimestre" va de julio a hoy (a medias) y "el trimestre anterior" es abril-junio de 2026.
-- **Periodos** escritos como `fecha >= primer día AND fecha < día siguiente al último`.
-- **`fecha` es la fecha de cargo.** Qué fecha expone la vista lo decidirá el ADR-008.
-- **Los traspasos entre cuentas propias no son gasto ni ingreso.** Solo salen en `v_movimientos`.
-- **0 € no es "no hay datos".** Un periodo con movimientos pero sin gasto en una categoría da 0; un periodo sin ningún movimiento no tiene datos.
-- **El SQL de referencia cumple las mismas reglas que el asistente:** una sola sentencia `SELECT`, solo `v_movimientos`, `v_gastos` o `v_ingresos`, con `LIMIT`, sin filtrar nunca por usuario (el aislamiento lo hace RLS) y sin funciones peligrosas.
+- **Net spending.** "I spent" is `v_gastos.gasto_eur`, where refunds count as negative (ADR-005).
+- **"Today" is 2026-09-15.** "This year" is 2026, "last month" is August 2026, "this quarter" runs from July to today (partial) and "the previous quarter" is April-June 2026.
+- **Periods** are written as `fecha >= first day AND fecha < day after the last`.
+- **`fecha` is the charge date.** Which date the view exposes is settled by ADR-008.
+- **Transfers between own accounts are neither spending nor income.** They only appear in `v_movimientos`.
+- **€0 is not "no data".** A period with movements but no spending in a category gives 0; a period with no movements at all has no data.
+- **The reference SQL obeys the same rules as the assistant:** a single `SELECT` statement, only `v_movimientos`, `v_gastos` or `v_ingresos`, with `LIMIT`, never filtering by user (isolation is RLS's job) and with no dangerous functions.
 
-## Partición dev / test
+## Dev / test split
 
-Mejorar prompts y documentación contra las mismas preguntas con las que se mide hace subir la cifra por ajustarse a esas preguntas. Por eso 47 de las 152 (`evals/golden/splits_v0.yaml`) son **test**: se puntúan en cada ronda y se publican junto al resto, pero ningún cambio se decide por una pregunta de test. Las 105 restantes son **dev**. Las 26 originales no se han movido: las 21 de test añadidas en la semana 5 (GS-093, 096, 099, 102, 105, 108, 111 y 114 en recurrentes; GS-115, 118, 121, 124, 127, 130 y 133 en filtro compuesto; GS-136, 139, 142, 145, 148 y 151 en ingresos frente a gastos) son las que la misma regla deriva para las preguntas nuevas, y el fichero solo las añade al final.
+Improving prompts and documentation against the same questions used to measure raises the figure by fitting those questions. So 47 of the 152 (`evals/golden/splits_v0.yaml`) are **test**: they are scored every round and published with the rest, but no change is decided on a test question. The remaining 105 are **dev**. The original 26 have not moved: the 21 test questions added in week 5 (GS-093, 096, 099, 102, 105, 108, 111 and 114 in recurring; GS-115, 118, 121, 124, 127, 130 and 133 in compound filter; GS-136, 139, 142, 145, 148 and 151 in income versus spending) are what the same rule derives for the new questions, and the file only appends them at the end.
 
-La regla es mecánica, para que nadie elija: dentro de cada categoría, en orden de id, una de cada tres preguntas (la 3.ª, la 6.ª, la 9.ª…). `derive_test_ids` la implementa y `tests/evals/test_splits.py` comprueba que el fichero congelado sigue siendo exactamente lo que da la regla. Ampliar el set significa un set nuevo (v1), no editar este fichero. `-T split=dev` o `-T split=test` ejecutan solo una parte, y cada log desglosa el acierto por partición.
+The rule is mechanical, so that nobody chooses: within each category, in id order, one question in three (the 3rd, 6th, 9th…). `derive_test_ids` implements it and `tests/evals/test_splits.py` checks that the frozen file is still exactly what the rule gives. Growing the set means a new set (v1), not editing this file. `-T split=dev` or `-T split=test` run only one part, and each log breaks accuracy down by split.
 
-## Cada pregunta
+## Each question
 
-`id` (GS-001…, estable y nunca reutilizado), `question`, `user_id`, `category`, `difficulty`, `behavior` (`answer`, `clarify`, `no_data` o `refuse`), `reference_sql`, `ordered` (si el orden de las filas forma parte de la respuesta), `scenario_id` y `notes`. La categoría fija el comportamiento: ambigua es `clarify`, sin datos es `no_data` y fuera de dominio es `refuse`; el resto responden. Las de `no_data` llevan un SQL que cuenta movimientos en el periodo y debe dar 0.
+`id` (GS-001…, stable and never reused), `question`, `user_id`, `category`, `difficulty`, `behavior` (`answer`, `clarify`, `no_data` or `refuse`), `reference_sql`, `ordered` (whether row order is part of the answer), `scenario_id` and `notes`. The category fixes the behaviour: ambiguous is `clarify`, no data is `no_data` and out of domain is `refuse`; the rest answer. The `no_data` ones carry SQL that counts movements in the period and must give 0.
 
-La comparación (`matches`) ignora el orden de las filas salvo que `ordered` sea `true`, ignora el nombre de las columnas y tolera un céntimo.
+The comparison (`matches`) ignores row order unless `ordered` is `true`, ignores column names and tolerates one cent.
 
-## Cómo se comprueba
+## How it is checked
 
-1. **Estructura:** ids contiguos, categorías y dificultades repartidas, usuarios funcionales, anclajes a escenarios reales.
-2. **Reglas del SQL:** con controles negativos (otra tabla, sin `LIMIT`, filtro por usuario, `pg_sleep`, varias sentencias…). Es la semilla del validador de la semana 4.
-3. **Ejecución bajo RLS** como `app_reader`, con la misma semántica que tendrá el executor (`db/query.py`): transacción de solo lectura, `set_config` como primera sentencia y comprobación de que quedó fijado.
-4. **Deriva:** el resultado debe coincidir con `expected_v0.json`, que guarda la versión del dataset y el hash de la configuración. Si cambian los datos, el generador o la capa semántica sin que nadie lo decida, falla.
-5. **Verdad por otra vía (diseño del generador §6.3):** las respuestas de las preguntas con escenario se contrastan con `scenarios.params`, y otras con los movimientos crudos del generador sumados en Python. Una discrepancia indica un error en la capa semántica o en el SQL, no en el LLM.
+1. **Structure:** contiguous ids, categories and difficulties spread out, functional users, anchors to real scenarios.
+2. **SQL rules:** with negative controls (another table, no `LIMIT`, a user filter, `pg_sleep`, several statements…). It is the seed of the week 4 validator.
+3. **Execution under RLS** as `app_reader`, with the same semantics the executor will have (`db/query.py`): read-only transaction, `set_config` as the first statement and a check that it took.
+4. **Drift:** the result must match `expected_v0.json`, which stores the dataset version and the configuration hash. If the data, the generator or the semantic layer change without anyone deciding it, it fails.
+5. **Truth by another route (generator design §6.3):** the answers of the scenario questions are checked against `scenarios.params`, and others against the generator's raw movements summed in Python. A disagreement points to an error in the semantic layer or the SQL, not in the LLM.
 
-## Cómo añadir o cambiar una pregunta
+## How to add or change a question
 
-1. Escribe la pregunta en `golden_v0.yaml` con el siguiente id.
-2. Mira el resultado: `uv run safe-spending-golden show GS-0XX`. Léelo con ojo crítico: que el SQL no falle no significa que responda bien (un mes a medias, un periodo sin datos o un resultado vacío por una razón equivocada son los errores típicos).
-3. Regenera las respuestas esperadas: `uv run safe-spending-golden refresh`.
-4. Comprueba todo: `uv run safe-spending-golden check` y `uv run pytest tests/evals`.
-5. Commitea el YAML y `expected_v0.json` juntos.
+1. Write the question in `golden_v0.yaml` with the next id.
+2. Look at the result: `uv run safe-spending-golden show GS-0XX`. Read it critically: SQL that does not fail does not mean it answers well (a partial month, a period with no data or an empty result for the wrong reason are the typical errors).
+3. Regenerate the expected answers: `uv run safe-spending-golden refresh`.
+4. Check everything: `uv run safe-spending-golden check` and `uv run pytest tests/evals`.
+5. Commit the YAML and `expected_v0.json` together.
 
-Si cambias el generador o su configuración, sube `dataset_version` en `config.yaml` y en `golden_v0.yaml`, actualiza la huella del dataset con `uv run safe-spending-generate --update-reference-manifest` y repite el paso 3: el cambio de cifras queda a la vista en el diff de `expected_v0.json`, una línea por pregunta.
+If you change the generator or its configuration, bump `dataset_version` in `config.yaml` and in `golden_v0.yaml`, update the dataset fingerprint with `uv run safe-spending-generate --update-reference-manifest` and repeat step 3: the change in figures is visible in the diff of `expected_v0.json`, one line per question.

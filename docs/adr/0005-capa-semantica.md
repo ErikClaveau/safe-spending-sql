@@ -1,146 +1,148 @@
-# ADR-005: El LLM solo consulta una capa semántica de vistas a nivel de movimiento
+# ADR-005: The LLM queries only a semantic layer of movement-level views
 
-**Estado:** Aceptado (enmendado el 2026-10-03, ver sección "Enmiendas")
-**Fecha:** 2026-10-01
-**Decide:** Erik Claveau
-**Relacionados:** ADR-001 (PostgreSQL), ADR-002 (aislamiento con RLS), ADR-008 (fechas y divisas)
+> 🇪🇸 Español: [../es/adr/0005-capa-semantica.md](../es/adr/0005-capa-semantica.md)
 
-## Contexto
+**Status:** Accepted (amended on 2026-10-03, see "Amendments")
+**Date:** 2026-10-01
+**Decides:** Erik Claveau
+**Related:** ADR-001 (PostgreSQL), ADR-002 (isolation with RLS), ADR-008 (dates and currencies)
 
-En text-to-SQL, buena parte de los errores no son sintácticos sino semánticos: sumar sin tener en cuenta el signo, olvidar restar devoluciones, mezclar divisas, contar transferencias entre cuentas propias como gasto o inventar el nombre de una categoría. Si el LLM consulta las tablas base, tiene que acertar esas reglas de negocio en cada consulta. Además, un error semántico produce una cifra plausible pero incorrecta, que es el peor fallo posible en un asistente financiero.
+## Context
 
-Restricciones heredadas:
+In text-to-SQL, a good part of the errors are not syntactic but semantic: summing without taking the sign into account, forgetting to subtract refunds, mixing currencies, counting transfers between own accounts as spending or inventing a category name. If the LLM queries the base tables, it has to get those business rules right on every query. And a semantic error produces a plausible but wrong figure, which is the worst possible failure in a financial assistant.
 
-- **ADR-002.** El aislamiento lo impone RLS y el LLM no conoce el `user_id`. Las vistas deben usar `security_invoker = true`, lo que obliga a que `app_reader` tenga `SELECT` sobre las tablas base.
-- **Público.** Las preguntas llegan en castellano, pero el repositorio debe ser comprensible para lectores en inglés.
-- **Metodología.** La métrica principal es la execution accuracy, y el proyecto sigue una metodología de mejora guiada por análisis de errores.
+Inherited constraints:
 
-## Decisión
+- **ADR-002.** Isolation is imposed by RLS and the LLM does not know the `user_id`. The views must use `security_invoker = true`, which requires `app_reader` to have `SELECT` on the base tables.
+- **Audience.** Questions arrive in Spanish, but the repository must be understandable to English readers.
+- **Methodology.** The main metric is execution accuracy, and the project follows an improvement methodology guided by error analysis.
 
-### 1. Solo vistas
+## Decision
 
-El LLM trabaja exclusivamente sobre una capa semántica de vistas. Las tablas base no se le describen ni puede referenciarlas. La restricción se impone así:
+### 1. Views only
 
-- El `SchemaProvider` solo describe las vistas semánticas.
-- El validador (sqlglot) rechaza cualquier consulta que referencie un objeto fuera de la allowlist de vistas. sqlglot **solo valida, nunca reescribe** el SQL (ADR-002).
-- `app_reader` mantiene `SELECT` sobre las tablas base porque `security_invoker` lo exige. La restricción a vistas **no** la imponen los `GRANT`.
+The LLM works exclusively on a semantic layer of views. The base tables are not described to it and it cannot reference them. The restriction is imposed as follows:
 
-Si el validador fallara y una consulta sobre una tabla base llegara a ejecutarse, RLS seguiría filtrando por usuario. El impacto sería de calidad de respuesta, no de aislamiento.
+- The `SchemaProvider` describes only the semantic views.
+- The validator (sqlglot) rejects any query that references an object outside the view allowlist. sqlglot **only validates, never rewrites** the SQL (ADR-002).
+- `app_reader` keeps `SELECT` on the base tables because `security_invoker` requires it. The restriction to views is **not** imposed by the `GRANT`s.
 
-### 2. Granularidad a nivel de movimiento
+If the validator failed and a query on a base table got to run, RLS would still filter by user. The impact would be on answer quality, not on isolation.
 
-Todas las vistas iniciales tienen una fila por movimiento. No se crean vistas agregadas (por ejemplo, gasto mensual por categoría) salvo que el análisis de errores muestre una categoría de fallo recurrente que una vista agregada resolvería. Cada vista que se añada debe ir acompañada de la métrica que la justifica.
+### 2. Movement-level granularity
 
-### 3. Tres vistas con convenciones de signo explícitas
+All the initial views have one row per movement. No aggregate views (for example, monthly spending by category) are created unless error analysis shows a recurring failure category that an aggregate view would solve. Every view that is added must come with the metric that justifies it.
 
-| Vista | Contenido | Columna de importe | Convención |
+### 3. Three views with explicit sign conventions
+
+| View | Contents | Amount column | Convention |
 |---|---|---|---|
-| `v_movimientos` | Todos los movimientos | `importe_eur` | Signo natural: negativo sale, positivo entra |
-| `v_gastos` | Todos los cargos no internos (compras, recibos, comisiones, Bizum y transferencias enviadas, retiradas de efectivo) y las devoluciones | `gasto_eur` | Positivo para gastos y negativo para devoluciones; `SUM(gasto_eur)` es el gasto neto |
-| `v_ingresos` | Todos los abonos no internos excepto las devoluciones (nóminas, Bizum y transferencias recibidas, otros ingresos) | `ingreso_eur` | Positivo |
+| `v_movimientos` | All movements | `importe_eur` | Natural sign: negative goes out, positive comes in |
+| `v_gastos` | All non-internal debits (purchases, direct debits, fees, Bizum and transfers sent, cash withdrawals) and refunds | `gasto_eur` | Positive for spending and negative for refunds; `SUM(gasto_eur)` is net spending |
+| `v_ingresos` | All non-internal credits except refunds (pay, Bizum and transfers received, other income) | `ingreso_eur` | Positive |
 
-- Los traspasos entre cuentas propias (`counterparty_account_id` informado) son los únicos movimientos excluidos de `v_gastos` y `v_ingresos`.
-- **Invariante:** todo movimiento no interno pertenece exactamente a una de las dos vistas. Por tanto, `SUM(ingreso_eur) - SUM(gasto_eur)` coincide con la variación real del saldo. Se verifica con un test de SQL.
-- La columna de importe tiene un nombre distinto en cada vista para que la convención de signo se lea en el propio nombre y no se confunda al combinar vistas.
+- Transfers between own accounts (`counterparty_account_id` set) are the only movements excluded from `v_gastos` and `v_ingresos`.
+- **Invariant:** every non-internal movement belongs to exactly one of the two views. Therefore `SUM(ingreso_eur) - SUM(gasto_eur)` equals the real change in balance. Verified with a SQL test.
+- The amount column has a different name in each view so that the sign convention can be read in the name itself and is not confused when combining views.
 
-### 4. Idioma: tablas en inglés, vistas en castellano
+### 4. Language: tables in English, views in Spanish
 
-- **Tablas base en inglés** (capa de ingeniería, alineada con los nombres de NextGenPSD2).
-- **Vistas y columnas semánticas en castellano** (capa de producto, en el idioma de las preguntas). Las vistas funcionan también como capa de traducción.
-- **Diccionario de datos en inglés** en `docs/data-dictionary.md`, con cada vista y columna, su tipo y su significado. Un test de CI comprueba que todas las columnas de las vistas semánticas aparecen en el diccionario.
+- **Base tables in English** (engineering layer, aligned with NextGenPSD2 names).
+- **Semantic views and columns in Spanish** (product layer, in the language of the questions). The views also work as a translation layer.
+- **Data dictionary in English** in `docs/data-dictionary.md`, with each view and column, its type and its meaning. A CI test checks that every column of the semantic views appears in the dictionary.
 
-Columnas previstas (versión inicial, ajustable tras el análisis de errores):
+Planned columns (initial version, adjustable after error analysis):
 
-| Columna | Significado |
+| Column | Meaning |
 |---|---|
-| `id_movimiento` | Identificador del movimiento; necesario para trazabilidad y verificación numérica |
-| `fecha` | Fecha del movimiento: la fecha de cargo (ADR-008) |
-| `importe_eur` / `gasto_eur` / `ingreso_eur` | Importe en euros según la convención de cada vista |
-| `importe_original`, `divisa_original` | Importe y divisa originales de la operación (todas las cuentas son en euros) |
-| `categoria`, `grupo_categoria` | Categoría y grupo, con valores de una lista cerrada |
-| `comercio` | Nombre normalizado del comercio (solo empresas) |
-| `contraparte` | Ordenante o beneficiario tal como aparece en el movimiento (incluye personas en Bizum y transferencias) |
-| `concepto` | Concepto original (`description_raw`); texto **no confiable** |
-| `medio_pago` | Tarjeta, recibo, transferencia, Bizum, etc. |
-| `cuenta` | IBAN enmascarado de la cuenta, derivado del IBAN sintético completo de `accounts` |
+| `id_movimiento` | Movement identifier; needed for traceability and numeric verification |
+| `fecha` | Movement date: the charge date (ADR-008) |
+| `importe_eur` / `gasto_eur` / `ingreso_eur` | Amount in euros according to each view's convention |
+| `importe_original`, `divisa_original` | The operation's original amount and currency (all accounts are in euros) |
+| `categoria`, `grupo_categoria` | Category and group, with values from a closed list |
+| `comercio` | Normalised merchant name (companies only) |
+| `contraparte` | Payer or payee as it appears in the movement (includes people in Bizum and transfers) |
+| `concepto` | Original concept (`description_raw`); **untrusted** text |
+| `medio_pago` | Card, direct debit, transfer, Bizum, etc. |
+| `cuenta` | Masked IBAN of the account, derived from the full synthetic IBAN in `accounts` |
 
-Ninguna vista expone `user_id` (ADR-002).
+No view exposes `user_id` (ADR-002).
 
-### 5. Descripción del esquema para el LLM
+### 5. Schema description for the LLM
 
-- La documentación vive en la base de datos, con `COMMENT ON VIEW` y `COMMENT ON COLUMN` en castellano, versionada en las migraciones.
-- El `SchemaProvider` la obtiene por introspección, de modo que la descripción y el esquema real no pueden divergir.
-- El `SchemaProvider` incluye la **lista cerrada de valores** de `categoria` y `grupo_categoria`, para evitar filtros con nombres inventados que devuelven 0 filas sin dar error.
-- Cada experimento de evaluación registra la **versión del esquema semántico** junto al commit, el modelo, el prompt y la versión del dataset.
+- The documentation lives in the database, with `COMMENT ON VIEW` and `COMMENT ON COLUMN` in Spanish, versioned in the migrations.
+- The `SchemaProvider` obtains it by introspection, so the description and the real schema cannot diverge.
+- The `SchemaProvider` includes the **closed list of values** of `categoria` and `grupo_categoria`, to avoid filters with invented names that return 0 rows without an error.
+- Each evaluation experiment records the **semantic schema version** next to the commit, model, prompt and dataset version.
 
-## Opciones consideradas
+## Options considered
 
-### Opción A: El LLM consulta las tablas base
+### Option A: The LLM queries the base tables
 
-**Pros:** máxima flexibilidad; no hay capa adicional que mantener.
+**Pros:** maximum flexibility; no extra layer to maintain.
 
-**Contras:** el LLM tiene que resolver signos, devoluciones, divisas y transferencias internas en cada consulta; más joins, más superficie de error y errores semánticos silenciosos.
+**Cons:** the LLM has to resolve signs, refunds, currencies and internal transfers on every query; more joins, more surface for error and silent semantic errors.
 
-### Opción B: Solo vistas semánticas (elegida)
+### Option B: Semantic views only (chosen)
 
-**Pros:** las reglas de negocio se resuelven una vez y se prueban; esquema más pequeño y en el idioma de las preguntas; mejor schema linking.
+**Pros:** business rules are resolved once and tested; a smaller schema in the language of the questions; better schema linking.
 
-**Contras:** hay que mantener las vistas; una pregunta que las vistas no cubran no se puede responder hasta ampliarlas.
+**Cons:** the views must be maintained; a question the views do not cover cannot be answered until they are extended.
 
-### Opción C: Mixto (vistas y tablas)
+### Option C: Mixed (views and tables)
 
-**Descartada.** Da al modelo dos caminos para responder lo mismo, y tenderá a elegir el incorrecto precisamente en los casos difíciles.
+**Rejected.** It gives the model two ways to answer the same thing, and it will tend to choose the wrong one precisely in the hard cases.
 
-### Alternativas descartadas dentro de la opción B
+### Alternatives rejected within option B
 
-- **Una única vista `v_movimientos` con columna de tipo.** Esquema más simple, pero devuelve al LLM la responsabilidad de filtrar y aplicar los signos correctamente en cada consulta.
-- **Vistas agregadas desde el inicio.** Limitan las preguntas respondibles (los filtros por día, importe o medio de pago no caben en un agregado mensual) y abren la puerta a dobles conteos al combinarse con vistas de detalle. Se aplazan hasta que el análisis de errores las justifique.
-- **Vistas con permisos del propietario (sin `security_invoker`) para imponer "solo vistas" mediante `GRANT`.** Exigiría rediseñar las políticas de RLS del ADR-002 para aplicarlas al propietario de las vistas. No aporta aislamiento adicional, porque una consulta sobre tablas base también está protegida por RLS.
+- **A single `v_movimientos` view with a type column.** A simpler schema, but it hands back to the LLM the responsibility of filtering and applying the signs correctly on every query.
+- **Aggregate views from the start.** They limit the answerable questions (filters by day, amount or payment method do not fit a monthly aggregate) and open the door to double counting when combined with detail views. Postponed until error analysis justifies them.
+- **Views with the owner's permissions (no `security_invoker`) to impose "views only" through `GRANT`s.** It would require redesigning ADR-002's RLS policies to apply to the views' owner. It adds no isolation, because a query on base tables is also protected by RLS.
 
-## Análisis de trade-offs
+## Trade-off analysis
 
-La capa semántica traslada complejidad del LLM a SQL escrito y probado por una persona. Ese intercambio es favorable porque el error que evita, una cifra plausible pero incorrecta, es difícil de detectar para el usuario y es exactamente lo que el proyecto quiere eliminar. El coste es la pérdida de flexibilidad ante preguntas no previstas, y se gestiona con el ciclo de análisis de errores: si una categoría de preguntas falla por falta de cobertura, se amplía la capa semántica y se mide el efecto.
+The semantic layer moves complexity from the LLM to SQL written and tested by a person. That exchange is favourable because the error it avoids, a plausible but wrong figure, is hard for the user to detect and is exactly what the project wants to eliminate. The cost is a loss of flexibility for unforeseen questions, and it is managed with the error analysis cycle: if a category of questions fails for lack of coverage, the semantic layer is extended and the effect measured.
 
-## Consecuencias
+## Consequences
 
-**Más fácil**
-- Las preguntas más frecuentes se reducen a agregaciones sencillas sobre una vista.
-- Las reglas de negocio se prueban con tests de SQL independientes del LLM.
-- Un lector en inglés entiende las tablas directamente y las vistas a través del diccionario.
+**Easier**
+- The most frequent questions reduce to simple aggregations over one view.
+- Business rules are tested with SQL tests independent of the LLM.
+- An English reader understands the tables directly and the views through the dictionary.
 
-**Más difícil**
-- Hay que mantener las vistas, sus comentarios y el diccionario sincronizados (este último, verificado en CI).
-- El generador de datos debe producir la información necesaria para clasificar cada movimiento: tipo de operación, devoluciones enlazadas con su compra y transferencias internas identificables.
+**Harder**
+- The views, their comments and the dictionary must be kept in sync (the latter verified in CI).
+- The data generator must produce the information needed to classify each movement: operation type, refunds linked to their purchase and identifiable internal transfers.
 
-**A revisar**
-- **ADR-008 (hecho):** `fecha` es la fecha de cargo y la conversión a euros usa el tipo de la fecha de la operación.
-- **Semana 4 (hecho):** la allowlist de sqlglot incluye exactamente las vistas semánticas, y las **funciones** pasan de lista negra a lista blanca (`allowed_functions.py`). Una lista negra frenó `dblink` y no `dblink_exec`, y dejó pasar `query_to_xml('SELECT …')`, que ejecuta texto como SQL y se salta las vistas. De 50 ataques directos, 34 pasaban; ahora pasan 11, todos inocuos o acotados por el *timeout* y el tope de filas. Las 444 sentencias que el modelo escribió de verdad en los logs siguen pasando.
-- **Semana 6:** idioma del README y de los ADRs para lectores en inglés.
+**To revisit**
+- **ADR-008 (done):** `fecha` is the charge date and the conversion to euros uses the rate of the operation date.
+- **Week 4 (done):** the sqlglot allowlist includes exactly the semantic views, and **functions** go from a blocklist to an allowlist (`allowed_functions.py`). A blocklist stopped `dblink` and not `dblink_exec`, and let `query_to_xml('SELECT …')` through, which runs text as SQL and skips the views. Of 50 direct attacks, 34 got through; now 11 do, all harmless or bounded by the timeout and the row cap. The 444 statements the model actually wrote in the logs still pass.
+- **Week 6:** language of the README and the ADRs for English readers (done: English first, with a Spanish mirror in `docs/es/`).
 
-## Próximos pasos
+## Next steps
 
-1. [x] Renombrar a inglés las columnas de las tablas base en el modelo de datos (migración `0001`).
-2. [x] Implementar `v_movimientos`, `v_gastos` y `v_ingresos` con `security_invoker = true` y sus `COMMENT ON` (migración `0002`, 2026-10-06).
-3. [x] Tests de SQL de las reglas de negocio: devoluciones restan, traspasos internos excluidos, invariante de pertenencia a exactamente una vista y conversión a euros (`tests/db/test_semantic_views.py`).
-4. [x] Crear `docs/data-dictionary.md` y el test de CI que verifica que todas las columnas están documentadas (en ambos sentidos: nada sin documentar y nada documentado que ya no exista).
-5. [ ] Implementar el `SchemaProvider` por introspección, con las listas cerradas de categorías.
-6. [ ] Añadir la versión del esquema semántico a los metadatos de experimentos y a las trazas.
+1. [x] Rename the base-table columns to English in the data model (migration `0001`).
+2. [x] Implement `v_movimientos`, `v_gastos` and `v_ingresos` with `security_invoker = true` and their `COMMENT ON` (migration `0002`, 2026-10-06).
+3. [x] SQL tests of the business rules: refunds subtract, internal transfers excluded, invariant of belonging to exactly one view and conversion to euros (`tests/db/test_semantic_views.py`).
+4. [x] Create `docs/data-dictionary.md` and the CI test that verifies that all columns are documented (both ways: nothing undocumented and nothing documented that no longer exists).
+5. [ ] Implement the `SchemaProvider` by introspection, with the closed category lists.
+6. [ ] Add the semantic schema version to the experiment metadata and the traces.
 
-## Enmiendas
+## Amendments
 
-### 2026-10-03: clasificación completa de los movimientos no internos
+### 2026-10-03: complete classification of non-internal movements
 
-Al diseñar la taxonomía de categorías del generador se detectó una ambigüedad: si los Bizum recibidos contaban como ingreso pero los enviados no contaban como gasto, la pregunta "¿cuánto ahorré?" daba un resultado incorrecto. Se acuerda:
+While designing the generator's category taxonomy an ambiguity was found: if received Bizum counted as income but sent ones did not count as spending, the question "how much did I save?" gave a wrong result. It is agreed:
 
-- `v_gastos` incluye todos los cargos no internos, también Bizum y transferencias a terceros y retiradas de efectivo, más las devoluciones con signo negativo.
-- `v_ingresos` incluye todos los abonos no internos excepto las devoluciones.
-- Los traspasos internos se identifican por `counterparty_account_id` y son los únicos movimientos fuera de ambas vistas.
-- Se añade el invariante de pertenencia a exactamente una vista, verificado en CI.
+- `v_gastos` includes all non-internal debits, also Bizum and transfers to third parties and cash withdrawals, plus refunds with negative sign.
+- `v_ingresos` includes all non-internal credits except refunds.
+- Internal transfers are identified by `counterparty_account_id` and are the only movements outside both views.
+- The invariant of belonging to exactly one view is added, verified in CI.
 
-### 2026-10-06: decisiones de implementación de la migración `0002`
+### 2026-10-06: implementation decisions of migration `0002`
 
-- **El signo de `amount_eur` lo fija el tipo de operación**, con una restricción `CHECK` en `transactions` (`transactions_sign_matches_tx_code`): `CARD_PURCHASE`, `DIRECT_DEBIT`, `TRANSFER_OUT`, `BIZUM_OUT`, `FEE` y `ATM_WITHDRAWAL` son negativos; `CARD_REFUND`, `TRANSFER_IN`, `BIZUM_IN` y `SALARY` son positivos; el cero es imposible. Es lo que garantiza en la base de datos que todo movimiento no interno cae en exactamente una vista. El generador debe respetarla.
-- **`v_gastos` y `v_ingresos` llevan `gasto_original` e `ingreso_original`** (con la misma convención de signo que su columna en euros) en lugar de `importe_original`, para que la convención de signo siga leyéndose en el nombre de cada columna de importe. `v_movimientos` mantiene `importe_original` con signo natural.
-- **`medio_pago`** se calcula con la función `medio_pago_de(tx_code)`, fuente única para las tres vistas. `app_reader` solo tiene `EXECUTE` sobre ella.
-- **`cuenta`** muestra el código de país, asteriscos y los 4 últimos dígitos del IBAN.
-- **`fecha`** es `booking_date` (ADR-008).
+- **The sign of `amount_eur` is fixed by the operation type**, with a `CHECK` constraint on `transactions` (`transactions_sign_matches_tx_code`): `CARD_PURCHASE`, `DIRECT_DEBIT`, `TRANSFER_OUT`, `BIZUM_OUT`, `FEE` and `ATM_WITHDRAWAL` are negative; `CARD_REFUND`, `TRANSFER_IN`, `BIZUM_IN` and `SALARY` are positive; zero is impossible. This is what guarantees in the database that every non-internal movement falls in exactly one view. The generator must respect it.
+- **`v_gastos` and `v_ingresos` carry `gasto_original` and `ingreso_original`** (with the same sign convention as their euro column) instead of `importe_original`, so that the sign convention can still be read in the name of each amount column. `v_movimientos` keeps `importe_original` with natural sign.
+- **`medio_pago`** is computed with the function `medio_pago_de(tx_code)`, the single source for the three views. `app_reader` only has `EXECUTE` on it.
+- **`cuenta`** shows the country code, asterisks and the last 4 digits of the IBAN.
+- **`fecha`** is `booking_date` (ADR-008).

@@ -33,7 +33,7 @@ What those numbers do and do not say:
 
 ### How it got here
 
-Every change that was kept or discarded, with the run that justified it, is in [`docs/iteraciones-evals.md`](docs/iteraciones-evals.md) (Spanish). The shape of it:
+Every change that was kept or discarded, with the run that justified it, is in [`docs/iteraciones-evals.md`](docs/iteraciones-evals.md) (Spanish only). The shape of it:
 
 | Step | Golden set | Tolerant accuracy |
 |---|---|---|
@@ -158,7 +158,7 @@ In CI, [`tests.yml`](.github/workflows/tests.yml) runs the whole suite on every 
 
 ## Documentation language
 
-The design documents (plan, ADRs, generator design, golden set, iteration log) were written in Spanish. English versions are being added, with a link between each pair; until a document has its English version, the link points to the Spanish one. This README, the dataset card and ADR-009 are English first.
+Every document is in English with a Spanish mirror at the same path under [`docs/es/`](docs/es/), each linking to the other; a test (`tests/docs/test_language_parity.py`) fails if a pair is missing or a link breaks. Three are deliberately in one language: the working plan and the [iteration log](docs/iteraciones-evals.md) are Spanish only, and the [data dictionary](docs/data-dictionary.md) is English only (it is the English layer over the Spanish views).
 
 ## License
 

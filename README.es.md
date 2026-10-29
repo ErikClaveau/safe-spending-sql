@@ -50,7 +50,7 @@ El detalle de cada cambio, mantenido o descartado, con la ejecución que lo just
 | `claude-haiku-5-5` | 88,8–89,5 % (152 preguntas, dos ejecuciones) | 1,1 $ |
 | `claude-opus-5-5` | 90,0 % frente a 91,1 % de Sonnet (90 preguntas) | 29,8 $ |
 
-Haiku es 12 veces más barato y 9 puntos peor, y uno de sus fallos estables es una cifra equivocada con aspecto de respuesta. Opus no mejoró a Sonnet. Las puertas de aislamiento e inyección también se cumplen con Haiku. Detalle en el [ADR-004](docs/adr/0004-modelo-de-lenguaje.md).
+Haiku es 12 veces más barato y 9 puntos peor, y uno de sus fallos estables es una cifra equivocada con aspecto de respuesta. Opus no mejoró a Sonnet. Las puertas de aislamiento e inyección también se cumplen con Haiku. Detalle en el [ADR-004](docs/es/adr/0004-modelo-de-lenguaje.md).
 
 ## Cómo funciona
 
@@ -62,7 +62,7 @@ Generar SQL (tool use + Pydantic) → validar (sqlglot) → ejecutar en solo lec
 4. **Responder y comprobar.** El modelo redacta la respuesta con el resultado completo. La comprobación es por valor, no por procedencia: una cuenta que coincide con alguna celda pasa.
 5. **Trazar.** Una línea JSONL por petición, con el usuario como pseudónimo con sal, detrás del puerto `TraceSink`.
 
-Las decisiones están en los ADR: [001](docs/adr/0001-motor-de-base-de-datos.md) PostgreSQL · [002](docs/adr/0002-aislamiento-entre-usuarios.md) aislamiento solo con RLS · [003](docs/adr/0003-framework-de-evals.md) evals · [004](docs/adr/0004-modelo-de-lenguaje.md) modelo · [005](docs/adr/0005-capa-semantica.md) capa semántica · [006](docs/adr/0006-salida-estructurada.md) salida estructurada · [007](docs/adr/0007-observabilidad.md) observabilidad · [008](docs/adr/0008-fechas-y-divisas.md) fechas y divisas · [009](docs/adr/0009-demo.md) demo · [010](docs/adr/0010-ambiguedad.md) ambigüedad.
+Las decisiones están en los ADR: [001](docs/es/adr/0001-motor-de-base-de-datos.md) PostgreSQL · [002](docs/es/adr/0002-aislamiento-entre-usuarios.md) aislamiento solo con RLS · [003](docs/es/adr/0003-framework-de-evals.md) evals · [004](docs/es/adr/0004-modelo-de-lenguaje.md) modelo · [005](docs/es/adr/0005-capa-semantica.md) capa semántica · [006](docs/es/adr/0006-salida-estructurada.md) salida estructurada · [007](docs/es/adr/0007-observabilidad.md) observabilidad · [008](docs/es/adr/0008-fechas-y-divisas.md) fechas y divisas · [009](docs/es/adr/0009-demo.md) demo · [010](docs/es/adr/0010-ambiguedad.md) ambigüedad.
 
 ## Probarlo
 
@@ -77,11 +77,11 @@ Abre <http://localhost:8501>. Elige un usuario sintético en la barra lateral (s
 
 La pestaña **Try to break it** lanza las preguntas del set adversarial como el usuario para el que se escribió cada una. El veredicto usa las mismas reglas que las puertas de publicación.
 
-Los comandos de desarrollo (Docker y [`uv`](https://docs.astral.sh/uv/)), las evals y el CI están en la [versión en inglés](README.md#development) y en [`docs/ci.md`](docs/ci.md).
+Los comandos de desarrollo (Docker y [`uv`](https://docs.astral.sh/uv/)), las evals y el CI están en la [versión en inglés](README.md#development) y en [`docs/es/ci.md`](docs/es/ci.md).
 
 ## Los datos
 
-25 usuarios, 36 cuentas y 29.234 movimientos en dos años, generados, nunca recogidos. El dataset es reproducible byte a byte: un test lo regenera y compara filas y SHA-256 de cada fichero con el manifiesto versionado. Ver la [ficha del dataset](docs/dataset-card.md) (en inglés).
+25 usuarios, 36 cuentas y 29.234 movimientos en dos años, generados, nunca recogidos. El dataset es reproducible byte a byte: un test lo regenera y compara filas y SHA-256 de cada fichero con el manifiesto versionado. Ver la [ficha del dataset](docs/es/dataset-card.md).
 
 ## Limitaciones conocidas
 
@@ -92,6 +92,10 @@ Los comandos de desarrollo (Docker y [`uv`](https://docs.astral.sh/uv/)), las ev
 - **Solo en español.** Preguntas, capa semántica y prompts, a propósito: es lo que lee el modelo.
 - **Comprobación numérica por valor.** Detecta números inventados, no un número real atribuido a algo que no es.
 - **Un benchmark sintético.** Los resultados dicen cómo se comporta el sistema con este dataset y estilo de pregunta, no con preguntas de clientes reales.
+
+## Idioma de la documentación
+
+Todos los documentos están en inglés con un espejo en español en la misma ruta bajo [`docs/es/`](docs/es/), enlazados entre sí; un test (`tests/docs/test_language_parity.py`) falla si falta un par o se rompe un enlace. Tres están a propósito en un solo idioma: el plan de trabajo y el [registro de iteraciones](docs/iteraciones-evals.md) solo en español, y el [diccionario de datos](docs/data-dictionary.md) solo en inglés (es la capa en inglés sobre las vistas en español).
 
 ## Licencia
 

@@ -1,48 +1,50 @@
-# ADR-006: Salida estructurada con tool use y validación Pydantic
+# ADR-006: Structured output with tool use and Pydantic validation
 
-**Estado:** Aceptado
-**Fecha:** 2026-10-21
-**Decide:** Erik Claveau
-**Relacionados:** ADR-004 (modelo), ADR-005 (capa semántica)
+> 🇪🇸 Español: [../es/adr/0006-salida-estructurada.md](../es/adr/0006-salida-estructurada.md)
 
-## Contexto
+**Status:** Accepted
+**Date:** 2026-10-21
+**Decides:** Erik Claveau
+**Related:** ADR-004 (model), ADR-005 (semantic layer)
 
-El pipeline necesita que el modelo devuelva datos, no prosa: el SQL, si hace falta aclarar, si la pregunta está fuera de dominio. Una salida mal formada no debe llegar al validador ni al executor. Además cada intento (incluidos los fallidos) debe quedar en la traza (plan §10).
+## Context
 
-## Decisión
+The pipeline needs the model to return data, not prose: the SQL, whether to ask for clarification, whether the question is out of domain. A malformed output must not reach the validator or the executor. Also every attempt (failed ones included) must be in the trace (plan §10).
 
-- El modelo responde mediante **tool use** con un esquema JSON que lo obliga a rellenar campos tipados (por ejemplo `accion` ∈ {`consultar`, `aclarar`, `rechazar`}, `sql`, `mensaje`).
-- La herramienta se declara con `strict: true`, de modo que si el modelo la llama, la entrada cumple el esquema. **No se puede forzar la llamada** (`tool_choice` `any`/`tool` devuelve un 400 en `claude-sonnet-5-5` y `claude-opus-5-5`): se usa `auto` y el sistema pide responder solo con la herramienta. Una respuesta sin llamada llega como `structured_output = None` y cuenta como intento fallido, igual que una entrada que no valida.
-- La respuesta se **valida con Pydantic**. Si no valida, cuenta como intento fallido y se registra; el número de reintentos es configurable y limitado.
-- El SQL que sale de este paso sigue siendo texto no confiable: pasa por sqlglot y se ejecuta bajo RLS (ADR-002). Pydantic valida la forma, nunca la seguridad.
-- Los modelos Pydantic son el contrato del puerto `SQLGenerator`, independiente del proveedor. Los detalles de tool use se quedan en el adaptador de `LLMProvider`.
-- Los números de la respuesta final los calcula el SQL, no el modelo (invariante del proyecto).
+## Decision
 
-## Opciones consideradas
+- The model answers through **tool use** with a JSON schema that forces it to fill typed fields (for example `accion` ∈ {`consultar`, `aclarar`, `rechazar`}, `sql`, `mensaje`). The field names and values are Spanish identifiers in the code and are kept as they are.
+- The tool is declared with `strict: true`, so if the model calls it, the input meets the schema. **The call cannot be forced** (`tool_choice` `any`/`tool` returns a 400 on `claude-sonnet-5-5` and `claude-opus-5-5`): `auto` is used and the system asks to answer only with the tool. A response without a call arrives as `structured_output = None` and counts as a failed attempt, like an input that does not validate.
+- The response is **validated with Pydantic**. If it does not validate, it counts as a failed attempt and is recorded; the number of retries is configurable and bounded.
+- The SQL that comes out of this step is still untrusted text: it goes through sqlglot and runs under RLS (ADR-002). Pydantic validates shape, never security.
+- The Pydantic models are the contract of the `SQLGenerator` port, independent of the provider. Tool-use details stay in the `LLMProvider` adapter.
+- The numbers in the final answer are computed by the SQL, not by the model (a project invariant).
 
-| Opción | Robustez | Trazabilidad | Dependencias | Control de reintentos |
+## Options considered
+
+| Option | Robustness | Traceability | Dependencies | Retry control |
 |---|---|---|---|---|
-| **Tool use + Pydantic** | Alta: esquema forzado por el proveedor | Alta: JSON crudo y errores de validación | Ninguna extra | Propio |
-| Instructor | Alta | Media: oculta parte de los intentos | Una más | Delegado |
-| Texto con parseo | Baja | Media | Ninguna | Propio |
+| **Tool use + Pydantic** | High: schema enforced by the provider | High: raw JSON and validation errors | None extra | Own |
+| Instructor | High | Medium: hides part of the attempts | One more | Delegated |
+| Text with parsing | Low | Medium | None | Own |
 
-## Consecuencias
+## Consequences
 
-**Más fácil**
-- Salidas tipadas y fallos de formato visibles y medibles como categoría de error.
-- Cada intento queda en la traza tal cual.
+**Easier**
+- Typed outputs and format failures that are visible and measurable as an error category.
+- Each attempt stays in the trace as it is.
 
-**Más difícil**
-- El adaptador de cada proveedor debe traducir el esquema a su mecanismo de tool use.
-- Hay que implementar los reintentos y su registro.
+**Harder**
+- Each provider's adapter must translate the schema to its tool-use mechanism.
+- Retries and their recording must be implemented.
 
-**A revisar**
-- La acción `aclarar` se usa solo cuando no hay una interpretación razonable; si la hay, se asume y se explicita (ADR-010).
+**To revisit**
+- The `aclarar` action is used only when there is no reasonable interpretation; if there is one, it is assumed and stated (ADR-010).
 
-- El esquema de `GeneratorResponse` (campos opcionales con `anyOf` nulo y `$defs` para el enum) se probó el 2026-10-21 contra la API real con `strict: true` y `claude-sonnet-5-5`: la API lo aceptó y el modelo llamó a la herramienta en las dos preguntas de prueba (una de consulta y una fuera de dominio), con salidas que validaron con Pydantic.
+- The `GeneratorResponse` schema (optional fields with a null `anyOf` and `$defs` for the enum) was tested on 2026-10-21 against the real API with `strict: true` and `claude-sonnet-5-5`: the API accepted it and the model called the tool on both test questions (one query and one out of domain), with outputs that validated with Pydantic.
 
-## Próximos pasos
+## Next steps
 
-1. [ ] Modelos Pydantic de la respuesta del generador.
-2. [ ] Reintentos con registro de cada intento en la traza.
-3. [ ] Contar en las evals los fallos de formato por separado de los fallos de SQL.
+1. [ ] Pydantic models of the generator's response.
+2. [ ] Retries with each attempt recorded in the trace.
+3. [ ] Count format failures separately from SQL failures in the evals.
