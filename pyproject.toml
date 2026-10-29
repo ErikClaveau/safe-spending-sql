@@ -27,6 +27,11 @@ safe-spending-load = "safe_spending.db.loader:main"
 safe-spending-golden = "safe_spending.evals.golden.cli:main"
 safe-spending-adversarial = "safe_spending.evals.adversarial.cli:main"
 
+[project.optional-dependencies]
+demo = [
+    "streamlit>=1.40",
+]
+
 [dependency-groups]
 dev = [
     "inspect-ai>=0.3.283",
