@@ -94,6 +94,21 @@ Se añaden 19 de `ingresos_vs_gastos` (GS-134 a GS-152, 6 de ellas de *test*): i
 
 - **Un caso que sale de los datos y no de la pregunta.** El usuario 6 no cobra nada en febrero de 2026: el 28 cae en sábado y la nómina entra el 2 de marzo, así que marzo tiene dos. «¿En qué mes ahorré menos?» habría premiado ese desplazamiento, no el gasto del usuario, y la descarté. GS-147 pregunta por la nómina de febrero y la respuesta es 0 (hay movimientos ese mes, no «sin datos»). Es una consecuencia de que `fecha` sea la fecha de cargo (ADR-008).
 - El gate del golden de `test_eval_gate.py` pasa con este log (92,1 % frente al umbral del 85 %).
+### Prompt v4: un dato concreto, una fila (152 preguntas)
+
+Los cuatro fallos de forma de `recurrentes` (GS-091, 097, 106 y 109, todos de *dev*) tenían una causa común: la pregunta pide un dato (cuánto subió, qué día, qué empresa) y el modelo devuelve el detalle para que lo deduzca quien lee. La v4 es la v3 más **una regla**: si la pregunta pide un dato concreto, la consulta lo devuelve en una sola fila, calculado en SQL; un listado solo cuando pide varias cosas («qué suscripciones») o un desglose («cada mes»). No se usó nada de *test* para diseñarla. La regla de la fila 2 («devuelve solo las columnas pedidas») rompió ocho preguntas; esta se redactó por el tipo de pregunta y no por las columnas, y se midió dos veces.
+
+| Prompt | Tolerante (todas) | dev | test | Estricta | Recurrentes | Coste |
+|---|---|---|---|---|---|---|
+| v3 | 92,1 % (140/152) | 91,4 % (96/105) | 93,6 % (44/47) | 69,1 % | 72,7 % | $2,00 |
+| v4, ejecución 1 | **96,1 % (146/152)** | 95,2 % (100/105) | 97,9 % (46/47) | 74,3 % | 87,9 % | $2,07 |
+| v4, ejecución 2 | 94,7 % (144/152) | 95,2 % (100/105) | 93,6 % (44/47) | 75,0 % | 84,8 % | $2,05 |
+
+- **Las cuatro de *dev* quedan bien en las dos ejecuciones**, y no se rompe ninguna de *dev*. Esa es la evidencia sobre la que se decide.
+- **En *test* hay movimiento, y se lee como ruido más un posible efecto leve.** GS-055 acierta en ambas (había fallado dos veces con v3). GS-086 acierta en la primera y falla en la segunda. GS-058 («¿a qué cambio medio me salió la libra?») acierta en la primera y falla en la segunda: devuelve solo euros por libra y omite libras por euro, es decir, una de las dos convenciones posibles. Puede ser un efecto de «una sola fila» sobre una pregunta con dos lecturas; con dos ejecuciones no se distingue.
+- Los 6 fallos que no se mueven son los de referencia estricta (GS-033, 041, 046, 049, 050 y 052).
+- **Los gates de seguridad con v4:** aislamiento, fuga 0/32; inyección, 0/30 con la trampa en las filas del modelo en 19 de 30 (63 %). El gate pide al menos la mitad.
+- **Decisión:** la v4 pasa a ser la versión por defecto (`PROMPT_VERSION = "v4"`). Las filas anteriores, medidas con v1-v3, se conservan.
 ## Ruido y contaminación
 
 Cada fila es una ejecución y el modelo no es determinista: el error estándar es de unos 3 puntos sobre 90 preguntas, y cada fila tiene entre uno y tres cambios que son ruido (GS-053 en la fila 1, GS-055 en la 3). Las diferencias de uno o dos puntos no son concluyentes. Para fiarse de una mejora pequeña hay que repetir con `--epochs 3`.

@@ -13,7 +13,7 @@ from string import Template
 
 from safe_spending.pipeline.schema import SemanticSchema, ViewDoc
 
-PROMPT_VERSION = "v3"
+PROMPT_VERSION = "v4"
 PROMPTS = Path(__file__).parent / "prompts"
 
 

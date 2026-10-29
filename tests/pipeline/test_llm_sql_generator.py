@@ -192,11 +192,20 @@ def test_the_prompt_has_the_date_the_views_and_the_closed_categories():
 
 
 def test_every_prompt_version_stays_loadable_and_none_is_edited_in_place():
-    prompts = {v: render_system_prompt(SCHEMA, TODAY, version=v) for v in ("v1", "v2", "v3")}
+    prompts = {v: render_system_prompt(SCHEMA, TODAY, version=v) for v in ("v1", "v2", "v3", "v4")}
 
-    assert len(set(prompts.values())) == 3
+    assert len(set(prompts.values())) == 4
     assert "COALESCE" not in prompts["v1"]  # v1 is what the baseline and round 1 ran with
-    assert PROMPT_VERSION == "v3" and render_system_prompt(SCHEMA, TODAY) == prompts["v3"]
+    assert PROMPT_VERSION == "v4" and render_system_prompt(SCHEMA, TODAY) == prompts["v4"]
+
+
+def test_prompt_v4_is_v3_plus_the_single_row_rule():
+    v3 = render_system_prompt(SCHEMA, TODAY, version="v3").splitlines()
+    v4 = render_system_prompt(SCHEMA, TODAY, version="v4").splitlines()
+
+    added = [line for line in v4 if line not in v3]
+    assert len(added) == 1 and "sola fila" in added[0]
+    assert [line for line in v4 if line in v3] == v3
 
 
 def test_prompt_v3_adds_the_coalesce_and_default_period_rules_and_leaves_out_the_columns_rule():
