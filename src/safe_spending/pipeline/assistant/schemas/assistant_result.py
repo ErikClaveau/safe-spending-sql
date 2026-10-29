@@ -4,6 +4,7 @@ from pydantic import BaseModel, ConfigDict, Field, computed_field
 
 from safe_spending.pipeline.assistant.schemas.assistant_outcome import AssistantOutcome
 from safe_spending.pipeline.assistant.schemas.assistant_round import AssistantRound
+from safe_spending.pipeline.assistant.schemas.stage_latency import StageLatency
 from safe_spending.pipeline.execution import ExecutionResult
 from safe_spending.pipeline.generation import GenerationResult
 from safe_spending.pipeline.synthesis import SynthesisResult
@@ -62,14 +63,19 @@ class AssistantResult(BaseModel):
 
     @computed_field
     @property
-    def latency_s(self) -> float:
+    def latency_by_stage(self) -> StageLatency:
         executions = [r.execution for r in self.corrections] + [self.execution]
 
-        return (
-                sum(generation.latency_s for generation in self._generations())
-                + sum(execution.latency_s for execution in executions if execution)
-                + (self.synthesis.latency_s if self.synthesis else 0.0)
+        return StageLatency(
+            generation_s=sum(generation.latency_s for generation in self._generations()),
+            execution_s=sum(execution.latency_s for execution in executions if execution),
+            synthesis_s=self.synthesis.latency_s if self.synthesis else 0.0
         )
+
+    @computed_field
+    @property
+    def latency_s(self) -> float:
+        return self.latency_by_stage.total_s
 
     def _generations(self) -> list[GenerationResult]:
         return [r.generation for r in self.corrections] + [self.generation]

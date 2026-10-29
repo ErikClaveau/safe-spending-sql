@@ -1,9 +1,16 @@
 from .assistant import Assistant
-from .schemas import AssistantOutcome, AssistantResult, AssistantRound
+from .ports import TraceSink
+from .pseudonym import pseudonymize
+from .schemas import AssistantOutcome, AssistantResult, AssistantRound, RequestTrace, StageLatency, TraceContext
 
 __all__ = [
     "Assistant",
     "AssistantOutcome",
     "AssistantResult",
     "AssistantRound",
+    "RequestTrace",
+    "StageLatency",
+    "TraceContext",
+    "TraceSink",
+    "pseudonymize",
 ]

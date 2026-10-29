@@ -146,6 +146,19 @@ def test_the_recent_user_has_history_only_from_the_signup_date(results, params):
     assert money(results, "GS-088") > 0
 
 
+def test_the_recurring_questions_of_week_five_match_the_scenarios(results, params):
+    subscriptions = params["subscription_changes"]
+    job = params["job_change"]
+    assert money(results, "GS-106") == subscriptions.price_increase.new_eur - subscriptions.price_increase.old_eur
+    assert cell(results, "GS-109") == job.old_employer
+    assert results["GS-110"].rows[0] == (job.new_employer, job.change_date.isoformat())
+
+
+def test_the_recent_user_pays_the_phone_from_the_signup_date(results, params):
+    first = date.fromisoformat(cell(results, "GS-111"))
+    assert params["recent_signup"].signup_date <= first < params["recent_signup"].signup_date + timedelta(days=60)
+
+
 # ---------------------------------------------------------------------------
 # Truth from the raw generated movements, summed in Python
 # ---------------------------------------------------------------------------
@@ -224,3 +237,66 @@ def test_transfers_are_not_counted_as_spending_in_the_question_that_traps_it(res
     naive = -sum(t.amount_eur for t in dataset.transactions
                  if t.user_id == 15 and t.amount_eur < 0 and t.booking_date >= start)  # counts the transfers too
     assert money(results, "GS-070") == spending(dataset, 15, start) < naive
+
+
+def merchant_total(dataset, user_id, merchant, start=date(2000, 1, 1), end=date(2100, 1, 1)):
+    ids = {m.merchant_id for m in dataset.merchants if m.normalized_name == merchant}
+    return -sum(
+        t.amount_eur
+        for t in dataset.transactions
+        if t.user_id == user_id and t.merchant_id in ids and start <= t.booking_date < end
+    )
+
+
+def test_recurring_merchant_totals_match_the_raw_movements(results, dataset):
+    assert money(results, "GS-094") == merchant_total(dataset, 4, "ENDESA", date(2025, 1, 1), date(2026, 1, 1))
+    assert money(results, "GS-096") == merchant_total(dataset, 1, "LYCAMOBILE", date(2026, 1, 1), date(2027, 1, 1))
+    assert money(results, "GS-105") == merchant_total(dataset, 1, "SPOTIFY")
+    assert money(results, "GS-114") == merchant_total(dataset, 9, "BASIC-FIT", date(2026, 1, 1), date(2027, 1, 1))
+
+
+def test_the_number_of_pays_matches_the_raw_movements(results, dataset):
+    pays = [t for t in dataset.transactions if t.user_id == 2 and t.tx_code is TxCode.SALARY]
+    assert cell(results, "GS-108") == len(pays)
+
+
+def purchases(dataset, user_id, merchants, start, end, over=Decimal(0)):
+    """Amounts spent (positive) at those merchants in the period, one per purchase, refunds left out."""
+    ids = {m.merchant_id for m in dataset.merchants if m.normalized_name in merchants}
+    return [
+        -t.amount_eur
+        for t in dataset.transactions
+        if t.user_id == user_id and t.merchant_id in ids and start <= t.booking_date < end
+        and t.amount_eur < 0 and -t.amount_eur > over
+    ]
+
+
+def test_compound_filter_questions_match_the_raw_movements(results, dataset):
+    year_2026 = (date(2026, 1, 1), date(2027, 1, 1))
+    zara_pull = purchases(dataset, 14, {"ZARA", "PULL&BEAR"}, *year_2026, over=Decimal(50))
+    assert money(results, "GS-121") == sum(zara_pull)
+    assert cell(results, "GS-122") == len(purchases(dataset, 8, {"STARBUCKS"}, *year_2026, over=Decimal(5)))
+    assert money(results, "GS-123") == sum(purchases(dataset, 10, {"AMAZON", "EL CORTE INGLES"}, *year_2026))
+    assert money(results, "GS-130") == sum(purchases(dataset, 2, {"TICKETMASTER", "YELMO"}, date(2025, 1, 1), date(2026, 1, 1)))
+
+
+def test_income_and_savings_questions_match_the_raw_movements(results, dataset):
+    year_2025 = (date(2025, 1, 1), date(2026, 1, 1))
+    assert money(results, "GS-134") == income(dataset, 11, *year_2025)
+    assert money(results, "GS-135") == income(dataset, 12, *year_2025) - spending(dataset, 12, *year_2025)
+    assert money(results, "GS-136") == income(dataset, 13, date(2026, 8, 1), date(2026, 9, 1)) - spending(
+        dataset, 13, date(2026, 8, 1), date(2026, 9, 1))
+    assert money(results, "GS-141") == (spending(dataset, 10, *year_2025) / 12).quantize(Decimal("0.01"))
+    assert money(results, "GS-152") == income(dataset, 10, date(2026, 1, 1), date(2026, 9, 1))
+
+
+def test_the_recent_user_has_spent_more_than_they_have_earned(results, dataset):
+    everything = (date(2000, 1, 1), date(2100, 1, 1))
+    assert money(results, "GS-143") == income(dataset, 3, *everything) - spending(dataset, 3, *everything)
+    assert money(results, "GS-143") < 0
+
+
+def test_the_february_pay_is_late_so_february_has_no_income(results, dataset):
+    assert income(dataset, 6, date(2026, 2, 1), date(2026, 3, 1)) == 0
+    assert income(dataset, 6, date(2026, 3, 1), date(2026, 4, 1)) == 2 * Decimal("2500.00")
+    assert cell(results, "GS-147") == "0"
