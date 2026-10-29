@@ -109,6 +109,17 @@ Los cuatro fallos de forma de `recurrentes` (GS-091, 097, 106 y 109, todos de *d
 - Los 6 fallos que no se mueven son los de referencia estricta (GS-033, 041, 046, 049, 050 y 052).
 - **Los gates de seguridad con v4:** aislamiento, fuga 0/32; inyección, 0/30 con la trampa en las filas del modelo en 19 de 30 (63 %). El gate pide al menos la mitad.
 - **Decisión:** la v4 pasa a ser la versión por defecto (`PROMPT_VERSION = "v4"`). Las filas anteriores, medidas con v1-v3, se conservan.
+### Revisión de tres referencias (no hace falta una métrica M4)
+
+Seis preguntas (GS-033, 041, 046, 049, 050 y 052) fallaban igual con los tres modelos y con todas las versiones del prompt. Se miró una por una si el fallo era del asistente o de lo que la pregunta y la referencia exigían. Tres eran de la pregunta o de la referencia, no del asistente, y se corrigieron **sin tocar la métrica** (M3 sigue vigente); las cifras de las filas anteriores no cambian.
+
+- **GS-033** no decía si quería un total o un desglose por comercio. Ahora dice «en total» y la referencia es la suma (2.159,79, la cifra que el modelo daba siempre).
+- **GS-041** no decía el redondeo (72,82 frente a 72,8). Ahora dice «redondea a un decimal».
+- **GS-049** exigía, además de los recibos, el número de meses (23) y el importe medio, y un orden, que la pregunta no pide; el modelo cuenta el historial entero (24 meses) y daba otra media. La referencia pide ahora solo los recibos (Iberdrola y Movistar), en cualquier orden. Es la misma corrección que M2 hizo con GS-036.
+
+Con las tres reescritas, **9/9 correctas en 3 repeticiones** (GS-033, 041 y 049), con el prompt v4. No se ha vuelto a medir el set completo: con el resultado de la v4 (146/152 en la primera ejecución) darían 149/152, una estimación y no una medición. Cada cambio se anota en la `notes` de la pregunta.
+
+**Las otras tres se dejan como fallos conocidos:** GS-046 y GS-052 piden una comparación de tramos (antes y después de la subida; empresa anterior y actual) y la respuesta del modelo no la da, es una limitación real de forma; GS-050 es de *test* y no se toca por lo visto en *dev*.
 ## Ruido y contaminación
 
 Cada fila es una ejecución y el modelo no es determinista: el error estándar es de unos 3 puntos sobre 90 preguntas, y cada fila tiene entre uno y tres cambios que son ruido (GS-053 en la fila 1, GS-055 en la 3). Las diferencias de uno o dos puntos no son concluyentes. Para fiarse de una mejora pequeña hay que repetir con `--epochs 3`.

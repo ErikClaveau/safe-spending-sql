@@ -491,20 +491,19 @@ questions:
       LIMIT 20
 
   - id: GS-033
-    question: "¿Cuánto he gastado en Mercadona y Carrefour este año en compras de más de 30 euros?"
+    question: "¿Cuánto he gastado en total entre Mercadona y Carrefour este año, contando solo compras de más de 30 euros?"
     user_id: 10
     category: filtro_compuesto
     difficulty: dificil
     behavior: answer
+    notes: "Reescrita tras la primera medición: la pregunta original no decía si quería un total o un desglose por comercio y el modelo daba siempre el total. Ahora pide el total."
     reference_sql: |
-      SELECT comercio, SUM(gasto_eur) AS gasto
+      SELECT SUM(gasto_eur) AS gasto
       FROM v_gastos
       WHERE comercio IN ('MERCADONA', 'CARREFOUR')
         AND gasto_eur > 30
         AND fecha >= '2026-01-01'
-      GROUP BY comercio
-      ORDER BY comercio
-      LIMIT 10
+      LIMIT 1
 
   - id: GS-034
     question: "¿Qué compras de ropa o electrónica de más de 100 euros hice entre abril y junio de este año?"
@@ -615,11 +614,12 @@ questions:
       LIMIT 1
 
   - id: GS-041
-    question: "¿Qué porcentaje de mis ingresos de 2025 gasté?"
+    question: "¿Qué porcentaje de mis ingresos de 2025 gasté? Redondea a un decimal."
     user_id: 12
     category: ingresos_vs_gastos
     difficulty: dificil
     behavior: answer
+    notes: "Reescrita tras la primera medición: el modelo daba dos decimales (72,82) y la referencia uno (72,8) porque la pregunta no decía el redondeo."
     reference_sql: |
       SELECT ROUND(
         100 * (SELECT SUM(gasto_eur) FROM v_gastos WHERE fecha >= '2025-01-01' AND fecha < '2026-01-01')
@@ -750,10 +750,9 @@ questions:
     category: recurrentes
     difficulty: dificil
     behavior: answer
-    ordered: true
-    notes: "Todos los meses del periodo con datos que están completos (de octubre de 2024 a agosto de 2026, 23 meses)."
+    notes: "Todos los meses del periodo con datos que están completos (de octubre de 2024 a agosto de 2026, 23 meses). Simplificada tras la primera medición: la referencia exigía el número de meses y el importe medio y un orden que la pregunta no pide (el modelo cuenta el historial entero, 24 meses, y daba otra media); ahora pide solo los recibos."
     reference_sql: |
-      SELECT comercio, COUNT(DISTINCT to_char(fecha, 'YYYY-MM')) AS meses_con_cargo, AVG(gasto_eur) AS importe_medio
+      SELECT comercio
       FROM v_gastos
       WHERE medio_pago = 'Recibo'
         AND fecha >= '2024-10-01' AND fecha < '2026-09-01'
