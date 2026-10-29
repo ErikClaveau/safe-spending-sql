@@ -39,6 +39,7 @@ El baseline de la semana 3 fija el listón de calidad, latencia y coste. Se nece
 
 **Resultado de la comparación (2026-10-28)**
 - Golden set v0 completo, mismo prompt y esfuerzo: Haiku 84,4 %, Sonnet 91,1 %, Opus 90,0 % de acierto tolerante, a $0,9, $13,2 y $29,8 por 1.000 consultas (detalle en `docs/iteraciones-evals.md`).
+- Segunda comparación (2026-10-29), con 152 preguntas, prompt v4 y referencias corregidas: Sonnet 98,0 % ($13,6 por 1.000 consultas), Haiku 89,5 % y 88,8 % en dos ejecuciones ($1,1). Haiku queda 9 puntos por debajo, con fallos de formato (`generation_failed`) y alguna cifra equivocada que parece correcta; sus gates de seguridad dan 0. Se mantiene Sonnet 5.5; Haiku queda como alternativa de bajo coste documentada.
 - Opus no justifica el doble de coste y Haiku pierde 6 puntos, incluido un caso en que responde donde debía rechazar. Se mantiene **Sonnet 5.5**. Una ejecución por modelo: las diferencias de 1-2 puntos entre Sonnet y Opus no son concluyentes.
 
 **A revisar**

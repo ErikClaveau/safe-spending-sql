@@ -117,9 +117,35 @@ Seis preguntas (GS-033, 041, 046, 049, 050 y 052) fallaban igual con los tres mo
 - **GS-041** no decía el redondeo (72,82 frente a 72,8). Ahora dice «redondea a un decimal».
 - **GS-049** exigía, además de los recibos, el número de meses (23) y el importe medio, y un orden, que la pregunta no pide; el modelo cuenta el historial entero (24 meses) y daba otra media. La referencia pide ahora solo los recibos (Iberdrola y Movistar), en cualquier orden. Es la misma corrección que M2 hizo con GS-036.
 
-Con las tres reescritas, **9/9 correctas en 3 repeticiones** (GS-033, 041 y 049), con el prompt v4. No se ha vuelto a medir el set completo: con el resultado de la v4 (146/152 en la primera ejecución) darían 149/152, una estimación y no una medición. Cada cambio se anota en la `notes` de la pregunta.
+Con las tres reescritas, **9/9 correctas en 3 repeticiones** (GS-033, 041 y 049), con el prompt v4. Cada cambio se anota en la `notes` de la pregunta.
+
+**Medición del set completo en el CI de GitHub** (Linux, `claude-sonnet-5-5`, prompt v4, 152 preguntas, referencias corregidas):
+
+| Prompt | Tolerante (todas) | dev | test | Estricta | Coste |
+|---|---|---|---|---|---|
+| v4, referencias corregidas (CI) | **98,0 % (149/152)** | 98,1 % (103/105) | 97,9 % (46/47) | 75,7 % | $2,06 |
+
+- Coincide con la estimación hecha antes de medir (149/152). Las tres corregidas aciertan, no se rompe ninguna y GS-058 y GS-086, que se habían movido entre ejecuciones locales, aciertan.
+- Los únicos fallos son los tres conocidos: GS-046, GS-050 y GS-052. Por categoría, todas al 100 % salvo `recurrentes` (30/33).
+- Los otros dos gates en la misma ejecución: aislamiento, fuga 0/32; inyección, 0/30, con la trampa en las filas del modelo en 23 de 30 (77 %).
 
 **Las otras tres se dejan como fallos conocidos:** GS-046 y GS-052 piden una comparación de tramos (antes y después de la subida; empresa anterior y actual) y la respuesta del modelo no la da, es una limitación real de forma; GS-050 es de *test* y no se toca por lo visto en *dev*.
+### Segunda comparación de modelos: Haiku con el prompt v4 (152 preguntas)
+
+La primera comparación (arriba) se hizo con el set de 90 y el prompt v3. Con el set de 152, el prompt v4 y las referencias corregidas, Haiku 5.5 se mide dos veces en local y se compara con Sonnet 5.5 en el CI de GitHub. Opus no se ha vuelto a medir.
+
+| Modelo | Tolerante (todas) | dev | test | Estricta | Coste | Por 1.000 consultas |
+|---|---|---|---|---|---|---|
+| `claude-sonnet-5-5` (CI) | **98,0 % (149/152)** | 98,1 % | 97,9 % | 75,7 % | $2,06 | $13,6 |
+| `claude-haiku-5-5`, ejecución 1 | 89,5 % (136/152) | 90,5 % (95/105) | 87,2 % (41/47) | 65,8 % | $0,174 | $1,1 |
+| `claude-haiku-5-5`, ejecución 2 | 88,8 % (135/152) | 89,5 % (94/105) | 87,2 % (41/47) | 65,1 % | $0,172 | $1,1 |
+
+- **Haiku queda unos 9 puntos por debajo de Sonnet en las dos ejecuciones**, y cuesta el 8 % (12 veces menos). Con el criterio que se fijó antes de medir (menos de 3-4 puntos de diferencia) **no lo cumple**.
+- **La mitad de sus fallos son estables y la mitad no.** Fallan en las dos ejecuciones 9 preguntas (GS-050, 052, 058, 061, 065, 081, 086, 106 y 143); las otras 7-8 de cada ejecución cambian de una a otra. Es ruido de modelo pequeño por encima del de Sonnet.
+- **Tres de los fallos estables son `generation_failed`** (GS-061, 065 y 106): Haiku no llega a producir una respuesta estructurada válida en los tres intentos. Es un problema de fiabilidad del formato, no de razonamiento.
+- **Un fallo estable es una cifra equivocada con aspecto de respuesta:** GS-143 («¿cuánto he ahorrado desde que me di de alta?») da +300,00 cuando la respuesta es −738,08, es decir, dice que ahorró cuando gastó de más. Y GS-081 («¿cuánto voy a gastar en octubre de 2026?») contesta con una media mensual en vez de decir que no hay datos futuros.
+- **Seguridad:** con Haiku, aislamiento con fuga 0/32 e inyección 0/30 (la trampa llegó al modelo en 19 de 30). Los dos gates se cumplen también con el modelo pequeño. No hay preguntas de `fuera_de_dominio` ni de rechazo falladas.
+- **Conclusión:** Haiku es una alternativa documentada para un caso donde el coste mande, no el modelo por defecto. La primera pregunta que habría que hacerse antes de usarlo es qué se hace con el 11 % que no acierta, y en particular con las cifras equivocadas que parecen correctas.
 ## Ruido y contaminación
 
 Cada fila es una ejecución y el modelo no es determinista: el error estándar es de unos 3 puntos sobre 90 preguntas, y cada fila tiene entre uno y tres cambios que son ruido (GS-053 en la fila 1, GS-055 en la 3). Las diferencias de uno o dos puntos no son concluyentes. Para fiarse de una mejora pequeña hay que repetir con `--epochs 3`.
