@@ -4,25 +4,17 @@ from datetime import date
 from pathlib import Path
 
 import anyio
-from anthropic import Anthropic
 from inspect_ai.solver import Generate, TaskState, solver
 
-from safe_spending.clock import FixedClock, SystemClock
 from safe_spending.evals.golden.dataset import GOLDEN_DATABASE
 from safe_spending.evals.harness.schemas import AssistantRun
+from safe_spending.pipeline import factory
 from safe_spending.pipeline.assistant import Assistant
-from safe_spending.pipeline.execution import PostgresQueryExecutor
-from safe_spending.pipeline.generation import LLMSQLGenerator
-from safe_spending.pipeline.llm import AnthropicLLMProvider
-from safe_spending.pipeline.schema import PostgresSchemaProvider
-from safe_spending.pipeline.synthesis import LLMAnswerSynthesizer
-from safe_spending.pipeline.tracing import JsonlTraceSink, trace_context_from_environment
-from safe_spending.pipeline.validation import SqlglotSQLValidator
-from safe_spending.pipeline.verification import ResultNumberVerifier
+from safe_spending.pipeline.factory import DEFAULT_MAX_ATTEMPTS as MAX_ATTEMPTS
+from safe_spending.pipeline.factory import DEFAULT_MODEL
+from safe_spending.pipeline.factory import DEFAULT_EFFORT as EFFORT
+from safe_spending.pipeline.tracing import trace_context_from_environment
 
-DEFAULT_MODEL = "claude-sonnet-5-5"
-EFFORT = "medium"
-MAX_ATTEMPTS = 3
 RESULT_KEY = "assistant_result"
 TRACE_DIR = Path("logs/traces")
 EVAL_USER_SALT = "eval-synthetic-users"  # the eval users are synthetic: no secret needed
@@ -36,44 +28,18 @@ def build_assistant(
         synthesize: bool = False,
         trace_dir: Path | None = TRACE_DIR
 ) -> tuple[Assistant, str]:
-    """The assistant over the reference database, and the version of the schema it shows the model.
-
-    With `synthesize` it also writes the answer text from the result (same model and protocol as the SQL),
-    and every number in that text is checked against the result. Every question is also traced to a JSONL
-    file in `trace_dir` (ADR-007; `None` turns it off); the file is named after the real date, not the
-    frozen one of the dataset."""
-    schema_provider = PostgresSchemaProvider(dbname=GOLDEN_DATABASE)
-    llm = AnthropicLLMProvider(
-        client=Anthropic(),
+    """The shared assistant (`pipeline.factory`) over the golden reference database, traced to `trace_dir`
+    (ADR-007; `None` turns it off) with a fixed salt, since the eval users are synthetic."""
+    return factory.build_assistant(
         model=model,
-        effort=EFFORT,
-        refusal_fallback=False
-    )
-    clock = FixedClock(today=reference_date)
-    assistant = Assistant(
-        generator=LLMSQLGenerator(
-            schema_provider=schema_provider,
-            llm=llm,
-            clock=clock,
-            max_attempts=MAX_ATTEMPTS,
-            prompt_version=prompt_version,
-        ),
-        validator=SqlglotSQLValidator(),
-        executor=PostgresQueryExecutor(dbname=GOLDEN_DATABASE),
+        prompt_version=prompt_version,
         max_corrections=max_corrections,
-        synthesizer=LLMAnswerSynthesizer(
-            llm=llm,
-            clock=clock,
-            verifier=ResultNumberVerifier()
-        ) if synthesize else None,
-        trace_sink=JsonlTraceSink(
-            directory=trace_dir,
-            clock=SystemClock()
-        ) if trace_dir else None,
+        reference_date=reference_date,
+        dbname=GOLDEN_DATABASE,
+        synthesize=synthesize,
+        trace_dir=trace_dir,
         trace_context=trace_context_from_environment(default_salt=EVAL_USER_SALT) if trace_dir else None,
     )
-
-    return assistant, schema_provider.get_schema().version
 
 
 @solver

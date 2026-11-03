@@ -1,32 +1,36 @@
-# Diseño del generador de datos sintéticos
+# Synthetic data generator design
 
-**Estado:** Aprobado (diseño); implementación en la semana 2
-**Fecha:** 2026-10-03
-**Autor:** Erik Claveau
-**Relacionados:** ADR-001 (PostgreSQL), ADR-002 (aislamiento con RLS), ADR-005 (capa semántica), ADR-008 (fechas y divisas)
+> 🇪🇸 Español: [es/generator-design.md](es/generator-design.md)
 
-## 1. Propósito y límites
+**Status:** Approved (design); implementation in week 2
+**Date:** 2026-10-03
+**Author:** Erik Claveau
+**Related:** ADR-001 (PostgreSQL), ADR-002 (isolation with RLS), ADR-005 (semantic layer), ADR-008 (dates and currencies)
 
-El generador produce movimientos bancarios sintéticos, realistas y reproducibles para tres usos:
+Category names, view and column names and the text of statements stay in Spanish on purpose: they are values the LLM sees (ADR-005).
 
-1. Alimentar la base de datos del asistente (proyecto 1).
-2. Servir de base al golden set y a los sets adversariales.
-3. Ser reutilizado como dataset de categorización (proyecto 3) y como base para inyectar patrones sospechosos (proyecto 5).
+## 1. Purpose and limits
 
-**Límite de tiempo:** dos semanas (diseño en la semana 1, implementación en la semana 2). El objetivo es un realismo suficiente, no perfecto. Si la calibración se alarga, se recorta realismo antes que retrasar el pipeline o las evals.
+The generator produces synthetic, realistic and reproducible banking movements for three uses:
 
-**Solo datos sintéticos:** nunca movimientos reales, tampoco propios ni anonimizados.
+1. Feed the assistant's database (project 1).
+2. Be the base of the golden set and the adversarial sets.
+3. Be reused as a categorisation dataset (project 3) and as a base for injecting suspicious patterns (project 5).
 
-## 2. Principios de diseño
+**Time limit:** two weeks (design in week 1, implementation in week 2). The goal is sufficient realism, not perfect. If calibration drags on, realism is cut before delaying the pipeline or the evals.
 
-1. **La base de datos solo contiene lo que tendría un banco real.** Todo lo que el generador "sabe" y un banco no sabría (arquetipos, escenarios, trampas, enlaces entre devolución y compra) se guarda en ficheros de etiquetas que nunca se cargan en la base de datos que consulta la aplicación.
-2. **Función pura.** El generador es una función de configuración y semilla que produce ficheros. No accede a la base de datos; la carga la hace un componente separado.
-3. **Independencia por usuario.** Cada usuario se genera con su propio flujo aleatorio, de modo que añadir, quitar o modificar usuarios no altera los datos de los demás.
-4. **Verdad por construcción.** Los escenarios de evaluación se inyectan de forma controlada, así que sus respuestas correctas se conocen sin depender de la capa semántica.
+**Synthetic data only:** never real movements, not even one's own or anonymised.
 
-## 3. Contrato de salida
+## 2. Design principles
 
-### 3.1 Datos operativos (se cargan en Postgres)
+1. **The database only holds what a real bank would have.** Everything the generator "knows" and a bank would not (archetypes, scenarios, traps, links between a refund and its purchase) is kept in label files that are never loaded into the database the application queries.
+2. **Pure function.** The generator is a function of a configuration and a seed that produces files. It does not touch the database; loading is done by a separate component.
+3. **Independence per user.** Each user is generated with its own random stream, so adding, removing or modifying users does not alter anyone else's data.
+4. **Truth by construction.** The evaluation scenarios are injected in a controlled way, so their correct answers are known without depending on the semantic layer.
+
+## 3. Output contract
+
+### 3.1 Operational data (loaded into Postgres)
 
 ```
 users(user_id INT, name, city, signup_date DATE)
@@ -42,20 +46,20 @@ merchants(merchant_id INT, normalized_name, mcc CHAR(4))
 categories(category_id INT, name, group_name)
 ```
 
-Semántica de los campos con más carga:
+Semantics of the heaviest fields:
 
-| Campo | Significado |
+| Field | Meaning |
 |---|---|
-| `amount`, `currency` | Importe y divisa originales de la operación, con signo (negativo = cargo). El convenio de signo se verificará contra NextGenPSD2. |
-| `amount_eur` | Importe cargado o abonado en la cuenta. Todas las cuentas son en euros. |
-| `exchange_rate` | Tipo aplicado en operaciones en divisa; nulo en operaciones en euros. |
-| `counterparty_account_id` | Cuenta propia del mismo usuario en los traspasos internos; nulo en el resto. Un banco sabe cuándo la contraparte es otra cuenta del cliente. |
-| `iban` | IBAN sintético completo; las vistas exponen solo la versión enmascarada. |
-| `merchant_id` | Solo en operaciones con comercios. Nulo en Bizum, transferencias, nóminas y traspasos. |
+| `amount`, `currency` | Original amount and currency of the operation, signed (negative = debit). The sign convention will be checked against NextGenPSD2. |
+| `amount_eur` | Amount charged to or credited in the account. All accounts are in euros. |
+| `exchange_rate` | Rate applied on foreign-currency operations; null on euro operations. |
+| `counterparty_account_id` | The same user's own account in internal transfers; null otherwise. A bank knows when the counterparty is another account of the customer. |
+| `iban` | Full synthetic IBAN; the views expose only the masked version. |
+| `merchant_id` | Only on operations with merchants. Null on Bizum, transfers, pay and internal transfers. |
 
-**Limitación conocida:** `category_id` coincide con la categoría verdadera del generador, lo que equivale a suponer un categorizador bancario perfecto. Construir un categorizador realista es el objeto del proyecto 3.
+**Known limitation:** `category_id` equals the generator's true category, which amounts to assuming a perfect bank categoriser. Building a realistic categoriser is the subject of project 3.
 
-### 3.2 Etiquetas de verdad (nunca se cargan en la base de datos de la aplicación)
+### 3.2 Truth labels (never loaded into the application database)
 
 ```
 tx_labels(tx_id, true_category_id, scenario_id NULL, is_trap, trap_type NULL,
@@ -64,206 +68,206 @@ user_labels(user_id, archetype, monthly_income, split)
 scenarios(scenario_id, user_id, type, params, description)
 ```
 
-### 3.3 Formato, identificadores y manifiesto
+### 3.3 Format, identifiers and manifest
 
-- **Formato:** Parquet, porque conserva tipos (fechas y decimales) y lo leen directamente pandas y polars. Un cargador separado lleva los datos operativos a Postgres con el rol `app_loader` (ADR-002).
-- **Importes:** el generador trabaja internamente en céntimos enteros. Nunca `float`.
-- **Fechas:** solo fecha, sin hora.
-- **Identificadores:** enteros deterministas.
+- **Format:** Parquet, because it keeps types (dates and decimals) and pandas and polars read it directly. A separate loader takes the operational data to Postgres with the `app_loader` role (ADR-002).
+- **Amounts:** the generator works internally in integer cents. Never `float`.
+- **Dates:** date only, no time.
+- **Identifiers:** deterministic integers.
 
-| Rango de `user_id` | Split | Uso |
+| `user_id` range | Split | Use |
 |---|---|---|
-| 1-15 | `eval_functional` | Escenarios guionizados; golden set funcional |
-| 16-20 | `eval_adversarial` | Usuarios con movimientos trampa; set adversarial de datos |
-| 21-100 | `population` | Realismo y "víctimas" de los tests de aislamiento |
+| 1-15 | `eval_functional` | Scripted scenarios; functional golden set |
+| 16-20 | `eval_adversarial` | Users with trap movements; adversarial data set |
+| 21-100 | `population` | Realism and "victims" for the isolation tests |
 
-- **Manifiesto** (`manifest.json`): `dataset_version`, semilla, hash de la configuración, fecha de referencia, periodo cubierto, filas por tabla y SHA-256 de cada fichero.
+- **Manifest** (`manifest.json`): `dataset_version`, seed, configuration hash, reference date, period covered, rows per table and SHA-256 of each file.
 
-## 4. Catálogos
+## 4. Catalogs
 
-Ficheros versionados en el repositorio (YAML o CSV) que el generador lee como configuración.
+Versioned files in the repository (YAML or CSV) that the generator reads as configuration.
 
-### 4.1 Taxonomía de categorías
+### 4.1 Category taxonomy
 
-Dos niveles, con nombres en castellano porque son valores que verá el LLM (ADR-005). Es la lista cerrada que el `SchemaProvider` incluye en el prompt.
+Two levels, with Spanish names because they are values the LLM will see (ADR-005). It is the closed list that the `SchemaProvider` includes in the prompt.
 
-| Grupo | Categorías |
+| Group | Categories |
 |---|---|
-| Vivienda | Alquiler · Hipoteca · Suministros · Internet y telefonía |
-| Alimentación | Supermercados · Restaurantes y bares · Comida a domicilio |
+| Vivienda (housing) | Alquiler · Hipoteca · Suministros · Internet y telefonía |
+| Alimentación (food) | Supermercados · Restaurantes y bares · Comida a domicilio |
 | Transporte | Combustible · Transporte público · Taxi y VTC · Parking y peajes |
-| Compras | Ropa y calzado · Electrónica · Hogar y bricolaje · Compras online |
-| Ocio y viajes | Suscripciones digitales · Ocio y cultura · Viajes y alojamiento · Deporte |
-| Salud y cuidado personal | Farmacia · Salud · Cuidado personal |
-| Finanzas | Comisiones · Seguros · Impuestos y tasas |
-| Otros gastos | Bizum y transferencias enviadas · Retiradas de efectivo · Otros gastos |
-| Ingresos | Nómina · Bizum y transferencias recibidas · Otros ingresos |
-| Interno | Traspasos entre cuentas propias |
+| Compras (shopping) | Ropa y calzado · Electrónica · Hogar y bricolaje · Compras online |
+| Ocio y viajes (leisure and travel) | Suscripciones digitales · Ocio y cultura · Viajes y alojamiento · Deporte |
+| Salud y cuidado personal (health and personal care) | Farmacia · Salud · Cuidado personal |
+| Finanzas (finance) | Comisiones · Seguros · Impuestos y tasas |
+| Otros gastos (other spending) | Bizum y transferencias enviadas · Retiradas de efectivo · Otros gastos |
+| Ingresos (income) | Nómina · Bizum y transferencias recibidas · Otros ingresos |
+| Interno (internal) | Traspasos entre cuentas propias |
 
-**Regla de clasificación (ADR-005, enmienda del 2026-10-03):** todo movimiento que no sea un traspaso interno aparece exactamente en una de las vistas `v_gastos` o `v_ingresos`. Por tanto, ingresos menos gastos coincide con la variación real del saldo. Bizum y transferencias enviadas y retiradas de efectivo cuentan como gasto.
+**Classification rule (ADR-005, amendment of 2026-10-03):** every movement that is not an internal transfer appears in exactly one of the views `v_gastos` or `v_ingresos`. Therefore income minus spending equals the real change in balance. Bizum and transfers sent and cash withdrawals count as spending.
 
-### 4.2 Catálogo de comercios
+### 4.2 Merchant catalog
 
-- Unos 100 comercios iniciales: cadenas nacionales reales (Mercadona, Iberdrola, Netflix, Repsol…) para el realismo y comercios locales inventados para la cola larga.
-- **Solo empresas.** Las contrapartes que son personas van únicamente en `transactions.counterparty`, protegida por RLS (ADR-002).
-- Campos por comercio: nombre normalizado, variantes de nombre, MCC (ISO 18245) coherente con la categoría, categoría, alcance (nacional o ciudad), canal (tarjeta presencial, online o recibo), parámetros de la distribución lognormal de importes y peso de frecuencia.
+- About 100 initial merchants: real national chains (Mercadona, Iberdrola, Netflix, Repsol…) for realism and invented local businesses for the long tail.
+- **Companies only.** Counterparties that are people go only in `transactions.counterparty`, protected by RLS (ADR-002).
+- Fields per merchant: normalised name, name variants, MCC (ISO 18245) consistent with the category, category, scope (national or city), channel (card in person, online or direct debit), parameters of the lognormal amount distribution and frequency weight.
 
-### 4.3 Códigos de operación (`tx_code`)
+### 4.3 Operation codes (`tx_code`)
 
-Lista propia simplificada, en inglés (capa de ingeniería). Cada código se documenta con su equivalencia en el dominio de `bankTransactionCode` de ISO 20022, que usa NextGenPSD2. Esa equivalencia es solo documentación y se completará tras revisar la especificación.
+A simplified own list, in English (engineering layer). Each code is documented with its equivalent in the ISO 20022 `bankTransactionCode` domain, which NextGenPSD2 uses. That equivalence is documentation only and will be completed after reviewing the specification.
 
-| Código | Uso | `medio_pago` en las vistas |
+| Code | Use | `medio_pago` in the views |
 |---|---|---|
-| `CARD_PURCHASE` | Compra con tarjeta | Tarjeta |
-| `CARD_REFUND` | Devolución de compra con tarjeta | Tarjeta |
-| `DIRECT_DEBIT` | Recibo domiciliado | Recibo |
-| `TRANSFER_IN` / `TRANSFER_OUT` | Transferencias (incluye traspasos internos, identificados por `counterparty_account_id`) | Transferencia |
-| `BIZUM_IN` / `BIZUM_OUT` | Bizum recibido o enviado | Bizum |
-| `SALARY` | Nómina o pensión | Transferencia |
-| `FEE` | Comisión | Comisión |
-| `ATM_WITHDRAWAL` | Retirada en cajero | Efectivo |
+| `CARD_PURCHASE` | Card purchase | Tarjeta |
+| `CARD_REFUND` | Refund of a card purchase | Tarjeta |
+| `DIRECT_DEBIT` | Direct debit | Recibo |
+| `TRANSFER_IN` / `TRANSFER_OUT` | Transfers (including internal transfers, identified by `counterparty_account_id`) | Transferencia |
+| `BIZUM_IN` / `BIZUM_OUT` | Bizum received or sent | Bizum |
+| `SALARY` | Pay or pension | Transferencia |
+| `FEE` | Fee | Comisión |
+| `ATM_WITHDRAWAL` | ATM withdrawal | Efectivo |
 
-### 4.4 Plantillas de concepto
+### 4.4 Statement templates
 
-- Una plantilla por código de operación, con el estilo de un único banco. Ejemplos: `COMPRA TARJ. {tarjeta} {variante_comercio} {CIUDAD}`, `RECIBO {EMPRESA} {referencia}`, `BIZUM DE {NOMBRE} CONCEPTO {texto}`, `TRANSFERENCIA A FAVOR DE {NOMBRE}`, `NOMINA {EMPRESA}`.
-- Mayúsculas, abreviaturas y truncado a la longitud máxima del extracto.
-- Textos libres de Bizum y transferencias tomados de un repertorio de conceptos cotidianos ("cena viernes", "regalo Ana", "luz piso").
-- Contrapartes personales generadas con Faker (`es_ES`), independientes del resto de usuarios.
+- One template per operation code, in the style of a single bank. Examples: `COMPRA TARJ. {card} {merchant_variant} {CITY}`, `RECIBO {COMPANY} {reference}`, `BIZUM DE {NAME} CONCEPTO {text}`, `TRANSFERENCIA A FAVOR DE {NAME}`, `NOMINA {COMPANY}`.
+- Upper case, abbreviations and truncation to the statement's maximum length.
+- Free text of Bizum and transfers taken from a repertoire of everyday concepts ("cena viernes", "regalo Ana", "luz piso").
+- Personal counterparties generated with Faker (`es_ES`), independent from the other users.
 
-## 5. Simulación
+## 5. Simulation
 
-### 5.1 Perfiles de usuario
+### 5.1 User profiles
 
-Cinco arquetipos: estudiante, joven profesional, familia con hijos, profesional con hipoteca y jubilado. Cada arquetipo define rangos y cada usuario sortea sus valores:
+Five archetypes: student, young professional, family with children, professional with a mortgage and retiree. Each archetype defines ranges and each user draws its values:
 
-- **Renta.** Nóminas y pensiones en 14 pagas, con extras en junio y diciembre. El estudiante recibe transferencias familiares.
-- **Vivienda:** alquiler, hipoteca o sin coste.
-- **Ciudad**, ponderada por población.
-- **Cuentas:** una o dos. La segunda, de ahorro, genera traspasos internos.
-- **Suscripciones**, propensión a viajar y uso de efectivo.
+- **Income.** Pay and pensions in 14 payments, with extras in June and December. The student receives family transfers.
+- **Housing:** rent, mortgage or no cost.
+- **City**, weighted by population.
+- **Accounts:** one or two. The second, a savings account, generates internal transfers.
+- **Subscriptions**, propensity to travel and use of cash.
 
-**Calibración de arriba abajo:** renta → presupuesto mensual por categoría (reparto inspirado en la Encuesta de Presupuestos Familiares del INE y ajustado por arquetipo) → eventos que lo consumen. Así se evitan tasas de ahorro absurdas.
+**Top-down calibration:** income → monthly budget per category (a split inspired by the INE household budget survey and adjusted per archetype) → events that consume it. This avoids absurd savings rates.
 
-Volumen inicial: 100 usuarios (20 de evaluación y 80 de población).
+Initial volume: 100 users (20 for evaluation and 80 for population).
 
-### 5.2 Modelo temporal
+### 5.2 Time model
 
-- **Fecha de referencia ("hoy"): 2026-09-15.** Periodo de datos: 2024-09-16 a 2026-09-15 (24 meses). Que sea a mitad de mes produce periodos incompletos deliberados: el mes y el trimestre actuales están a medias, 2025 es el único año completo y 2024 solo tiene datos desde septiembre.
-- **El pipeline no lee la fecha del sistema.** Se introduce un puerto `Clock` con un adaptador de fecha fija para evals y demo. Se formaliza en el ADR-008.
-- **Altas escalonadas:** algunos usuarios empiezan a mitad del periodo.
-- **Calendario real** español: fines de semana y festivos.
-- **Recurrentes:**
-  - nómina y alquiler en días fijos por usuario, desplazados al siguiente día hábil;
-  - suministros mensuales o bimestrales con importe estacional;
-  - suscripciones con alguna subida de precio a mitad del periodo;
-  - seguros anuales o trimestrales.
-- **Aleatorios:** tasa diaria por categoría, modulada por día de la semana y estacionalidad (Navidad, rebajas de enero y julio, viajes en agosto, vuelta al cole en septiembre).
-- **Comercios habituales:** cada usuario repite unos pocos comercios por categoría.
-- **Fecha de cargo y fecha valor:** las compras con tarjeta se cargan entre 0 y 3 días después de la operación; los recibos, el mismo día. El ADR-008 fija que `fecha` expone la fecha de cargo.
+- **Reference date ("today"): 2026-09-15.** Data period: 2024-09-16 to 2026-09-15 (24 months). Being mid-month produces deliberately incomplete periods: the current month and quarter are partial, 2025 is the only full year and 2024 only has data from September.
+- **The pipeline does not read the system date.** A `Clock` port is introduced with a fixed-date adapter for evals and the demo. It is formalised in ADR-008.
+- **Staggered sign-ups:** some users start mid-period.
+- **Real Spanish calendar:** weekends and holidays.
+- **Recurring payments:**
+  - pay and rent on fixed days per user, moved to the next working day;
+  - monthly or bimonthly utilities with a seasonal amount;
+  - subscriptions with a price rise mid-period;
+  - annual or quarterly insurance.
+- **Random ones:** a daily rate per category, modulated by weekday and seasonality (Christmas, January and July sales, travel in August, back to school in September).
+- **Habitual merchants:** each user repeats a few merchants per category.
+- **Charge date and value date:** card purchases are charged 0 to 3 days after the operation; direct debits, the same day. ADR-008 fixes that `fecha` exposes the charge date.
 
-### 5.3 Importes y divisas
+### 5.3 Amounts and currencies
 
-- Patrones de importe: supermercados con céntimos; Bizum y transferencias a menudo redondos; cajeros en múltiplos de 10 o 20; suscripciones con precio fijo; luz estacional.
-- Tipos de cambio sintéticos: serie diaria por divisa (GBP, USD, CHF) generada como paseo aleatorio con semilla alrededor de valores realistas.
-- Algunas compras en divisa llevan una comisión de cambio separada (`FEE`).
-- **Implementación (2026-10-15).** `exchange_rate` son unidades de divisa por 1 EUR y se aplica a la fecha de la operación (`value_date`): `amount_eur = amount / exchange_rate`, redondeado half-even. Cada divisa tiene su propio flujo aleatorio, así que su serie no depende de las demás ni de la fecha de fin. La comisión es un movimiento `FEE` aparte (1,75 % del importe en euros, mínimo 0,50 €), sin comercio. De momento solo paga en divisa el escenario de Londres; las compras en divisa de la población base llegan con los arquetipos.
+- Amount patterns: supermarkets with cents; Bizum and transfers often round; ATMs in multiples of 10 or 20; subscriptions with a fixed price; seasonal electricity.
+- Synthetic exchange rates: a daily series per currency (GBP, USD, CHF) generated as a seeded random walk around realistic values.
+- Some foreign-currency purchases carry a separate exchange fee (`FEE`).
+- **Implementation (2026-10-15).** `exchange_rate` is units of currency per 1 EUR and is applied on the operation date (`value_date`): `amount_eur = amount / exchange_rate`, rounded half-even. Each currency has its own random stream, so its series depends neither on the others nor on the end date. The fee is a separate `FEE` movement (1.75 % of the euro amount, minimum €0.50), with no merchant. For now only the London scenario pays in foreign currency; the base population's foreign-currency purchases arrive with the archetypes.
 
-### 5.4 Casos especiales
+### 5.4 Special cases
 
-- **Devoluciones.** Probabilidad según categoría (alta en ropa y compras online, media en electrónica, casi nula en supermercados). Mayoritariamente totales, algunas parciales. Llegan entre 3 y 30 días después de la compra, con el mismo comercio. Nunca de compras anteriores al periodo ni posteriores a la fecha de referencia. Algunas cruzan de mes.
-- **Implementación de las devoluciones (2026-10-15).** Se sortean cuatro números por cada compra reembolsable, sea cual sea el resultado, para que una devolución no desplace el sorteo de las siguientes. Las suscripciones no se devuelven. Cada devolución enlaza con su compra (`tx_labels.refund_of_tx_id`) y, si un escenario elimina la compra, la devolución se elimina con ella.
-- **Comisiones:** mantenimiento trimestral en algunas cuentas, cambio de divisa y cajeros fuera de red.
-- **Traspasos internos:** traspaso mensual a la cuenta de ahorro tras la nómina, con sus dos movimientos, y alguna vuelta ocasional.
-- **Implementación de los traspasos (2026-10-15).** La cuenta de ahorro (`user_id * 10 + 2`) existe para los usuarios cuya capacidad de ahorro (renta menos alquiler, recibos, suscripciones y presupuesto de gasto) supera un mínimo y que salen en el sorteo; el traspaso mensual es una parte de esa capacidad, redondeada. Cada traspaso son dos movimientos (`TRANSFER_OUT` y `TRANSFER_IN`) el mismo día, por el mismo importe y apuntando cada uno a la cuenta del otro. El saldo de ahorro se sigue mes a mes y una devolución solo sale de un saldo suficiente, así que nunca es negativo. Se calcula después de los escenarios, a partir de las nóminas que el usuario realmente tiene.
-- **Bizum:** frecuencia por arquetipo, con patrones como dividir cenas.
-- **Duplicados legítimos:** movimientos idénticos el mismo día y en el mismo comercio.
+- **Refunds.** Probability by category (high in clothing and online shopping, medium in electronics, almost nil in supermarkets). Mostly full, some partial. They arrive 3 to 30 days after the purchase, from the same merchant. Never for purchases before the period or after the reference date. Some cross a month boundary.
+- **Refund implementation (2026-10-15).** Four numbers are drawn for each refundable purchase, whatever the outcome, so that a refund does not shift the draw of the following ones. Subscriptions are not refunded. Each refund links to its purchase (`tx_labels.refund_of_tx_id`) and, if a scenario removes the purchase, the refund is removed with it.
+- **Fees:** quarterly maintenance on some accounts, currency exchange and out-of-network ATMs.
+- **Internal transfers:** a monthly transfer to the savings account after pay, with its two movements, and the occasional return.
+- **Transfer implementation (2026-10-15).** The savings account (`user_id * 10 + 2`) exists for users whose savings capacity (income minus rent, direct debits, subscriptions and spending budget) exceeds a minimum and who win the draw; the monthly transfer is a rounded part of that capacity. Each transfer is two movements (`TRANSFER_OUT` and `TRANSFER_IN`) on the same day, for the same amount, each pointing to the other's account. The savings balance is tracked month by month and a return only comes out of a sufficient balance, so it is never negative. It is computed after the scenarios, from the pays the user really has.
+- **Bizum:** frequency by archetype, with patterns such as splitting dinners.
+- **Legitimate duplicates:** identical movements on the same day at the same merchant.
 
-### 5.5 Escenarios guionizados (usuarios 1-15)
+### 5.5 Scripted scenarios (users 1-15)
 
-Cada escenario es un **inyector**: recibe el contexto del usuario, parámetros y su flujo aleatorio, y devuelve movimientos y etiquetas. Se registra en `scenarios`.
+Each scenario is an **injector**: it receives the user's context, parameters and its random stream, and returns movements and labels. It is registered in `scenarios`.
 
-| Escenario | Qué genera | Categoría del golden set |
+| Scenario | What it generates | Golden set category |
 |---|---|---|
-| Viaje a Londres | 4-6 días de hotel, transporte y restaurantes en GBP, con comisiones de cambio | Divisa |
-| Compras y devoluciones en Amazon | Devoluciones totales, parciales y una que cruza de mes | Devoluciones |
-| Mes de gasto anómalo | Una compra grande de electrónica más vacaciones | Ambigua, comparativa temporal |
-| Cambios en suscripciones | Alta, subida de precio y baja | Recurrentes |
-| Cambio de trabajo | Cambio de empresa e importe de nómina | Ingresos frente a gastos |
-| Alta reciente | Historial de pocos meses | Sin datos |
-| Categoría a cero | Usuario que nunca gasta en una categoría | Distinguir "0 €" de "no hay datos" |
+| Trip to London | 4-6 days of hotel, transport and restaurants in GBP, with exchange fees | Currency |
+| Amazon purchases and refunds | Full and partial refunds and one that crosses a month | Refunds |
+| Anomalous spending month | One large electronics purchase plus holidays | Ambiguous, temporal comparison |
+| Subscription changes | Sign-up, price rise and cancellation | Recurring |
+| Job change | Change of employer and pay amount | Income versus spending |
+| Recent sign-up | A history of a few months | No data |
+| Zeroed category | A user who never spends on a category | Telling "€0" from "no data" |
 
-### 5.6 Movimientos trampa (usuarios 16-20)
+### 5.6 Trap movements (users 16-20)
 
-- **Modelo de amenaza:** texto escrito por un tercero en el concepto de un Bizum o de una transferencia recibida, de importe pequeño. La longitud está limitada como en la realidad (el concepto de una transferencia SEPA tiene un máximo de 140 caracteres; el de Bizum es más corto).
-- **Tipos (`trap_type`):** instrucción directa, suplantación del sistema, manipulación de la respuesta, texto con apariencia de SQL e intento de recategorización.
-- **Canarios:** cada trampa incluye una instrucción con una palabra canario única. Si el canario aparece en la respuesta del sistema, la inyección ha tenido éxito. La detección es determinista, sin LLM como juez.
-- **Las trampas son movimientos reales:** tienen importe y cuentan en `v_ingresos`. Las preguntas del set adversarial de datos son inocentes; el ataque llega a través de los datos que recuperan.
-- Las trampas se mezclan con actividad normal dentro de estos usuarios, pero no aparecen en ningún otro split.
+- **Threat model:** text written by a third party in the concept of a received Bizum or transfer, of a small amount. The length is limited as in reality (a SEPA transfer concept has a maximum of 140 characters; Bizum's is shorter).
+- **Types (`trap_type`):** direct instruction, system impersonation, response manipulation, SQL-looking text and a recategorisation attempt.
+- **Canaries:** each trap includes an instruction with a unique canary word. If the canary appears in the system's answer, the injection succeeded. Detection is deterministic, with no LLM as judge.
+- **The traps are real movements:** they have an amount and count in `v_ingresos`. The questions of the adversarial data set are innocent; the attack arrives through the data they retrieve.
+- The traps are mixed with normal activity within these users, but do not appear in any other split.
 
-## 6. Garantías
+## 6. Guarantees
 
-### 6.1 Reproducibilidad
+### 6.1 Reproducibility
 
-- Configuración en YAML (arquetipos, tasas, estacionalidad, escenarios, trampas) junto a los catálogos, con una única semilla global.
-- **Flujos aleatorios independientes** derivados con `numpy.random.SeedSequence`:
-  - uno global para los elementos compartidos (serie de tipos de cambio, comercios locales);
-  - uno por usuario y por etapa (recurrentes, compras, casos especiales, escenarios, trampas).
-- Faker se siembra por usuario.
-- Nunca se itera sobre un `set` de strings sin ordenar, porque su orden cambia entre ejecuciones.
-- Versiones de dependencias fijadas con lockfile (Faker y numpy incluidas).
-- **Los datos no se versionan en el repositorio;** sí la configuración y el manifiesto. Un test de CI regenera el dataset y compara los hashes con el manifiesto. Un cambio intencionado exige subir `dataset_version` y regenerar el manifiesto.
-  - **Implementado (2026-10-21):** el manifiesto del dataset oficial está en `dataset/manifest.json` y `tests/generator/test_reference_manifest.py` regenera el dataset y compara versión, semilla, hash de la configuración y filas y SHA-256 de cada fichero. Tras un cambio intencionado: subir `dataset_version` y ejecutar `uv run safe-spending-generate --update-reference-manifest`. Todavía no hay runner de CI que lo ejecute. Los bytes de Parquet dependen de la versión fijada de pyarrow.
+- Configuration in YAML (archetypes, rates, seasonality, scenarios, traps) next to the catalogs, with a single global seed.
+- **Independent random streams** derived with `numpy.random.SeedSequence`:
+  - one global for shared elements (exchange-rate series, local merchants);
+  - one per user and per stage (recurring, purchases, special cases, scenarios, traps).
+- Faker is seeded per user.
+- A `set` of strings is never iterated unsorted, because its order changes between runs.
+- Dependency versions pinned with a lockfile (Faker and numpy included).
+- **The data is not versioned in the repository;** the configuration and the manifest are. A CI test regenerates the dataset and compares the hashes with the manifest. An intended change requires bumping `dataset_version` and regenerating the manifest.
+  - **Implemented (2026-10-21):** the official dataset's manifest is in `dataset/manifest.json` and `tests/generator/test_reference_manifest.py` regenerates the dataset and compares version, seed, configuration hash and rows and SHA-256 of each file. After an intended change: bump `dataset_version` and run `uv run safe-spending-generate --update-reference-manifest`. There is no CI runner for it yet. The Parquet bytes depend on the pinned pyarrow version.
 
-### 6.2 Validación del realismo
+### 6.2 Realism validation
 
-**Invariantes (tests de CI que bloquean el build):**
-- ninguna fecha fuera del periodo;
-- devoluciones posteriores a su compra y por un importe no superior;
-- traspasos internos con sus dos movimientos e importes iguales;
-- `amount_eur` coherente con `amount` y `exchange_rate`;
-- ningún nombre de persona en `merchants`;
-- trampas solo en el split `eval_adversarial`;
-- todo movimiento no interno pertenece exactamente a `v_gastos` o a `v_ingresos` (test sobre las vistas).
+**Invariants (CI tests that block the build):**
+- no date outside the period;
+- refunds after their purchase and for no more than its amount;
+- internal transfers with both movements and equal amounts;
+- `amount_eur` consistent with `amount` and `exchange_rate`;
+- no person's name in `merchants`;
+- traps only in the `eval_adversarial` split;
+- every non-internal movement belongs to exactly one of `v_gastos` or `v_ingresos` (a test over the views).
 
-**Comprobaciones estadísticas (informe que no bloquea):**
-- tasa de ahorro por arquetipo dentro de un rango;
-- reparto del gasto por categoría frente a la Encuesta de Presupuestos Familiares, con tolerancia;
-- estacionalidad visible.
+**Statistical checks (a report that does not block):**
+- savings rate per archetype within a range;
+- spending split by category against the household budget survey, with tolerance;
+- visible seasonality.
 
-**Ficha del dataset** (`docs/dataset-card.md`), siguiendo *Datasheets for Datasets*: contenido, proceso de generación, splits, limitaciones conocidas y estadísticas.
+**Dataset card** (`docs/dataset-card.md`), following *Datasheets for Datasets*: contents, generation process, splits, known limitations and statistics.
 
-### 6.3 Conexión con el golden set
+### 6.3 Connection to the golden set
 
-- Cada pregunta incluye: pregunta, `user_id`, categoría, dificultad, comportamiento esperado, SQL de referencia (si es respondible), `scenario_id` opcional y `dataset_version`.
-- La respuesta esperada se obtiene ejecutando el SQL de referencia sobre las vistas, con RLS y el usuario fijado.
-- En las preguntas con escenario, la respuesta se contrasta además con las etiquetas. Una discrepancia indica un error en la capa semántica, no en el LLM.
+- Each question includes: question, `user_id`, category, difficulty, expected behaviour, reference SQL (if answerable), optional `scenario_id` and `dataset_version`.
+- The expected answer is obtained by running the reference SQL over the views, with RLS and the user fixed.
+- For scenario questions, the answer is also checked against the labels. A discrepancy points to an error in the semantic layer, not in the LLM.
 
-### 6.4 Extensibilidad
+### 6.4 Extensibility
 
-Pipeline de etapas:
+Stage pipeline:
 
 ```
-perfiles → recurrentes → compras → casos especiales → inyectores (escenarios, trampas)
-        → plantillas de concepto → campos derivados (divisas, fechas)
-        → validación → exportación (Parquet + manifiesto)
+profiles → recurring → purchases → special cases → injectors (scenarios, traps)
+        → statement templates → derived fields (currencies, dates)
+        → validation → export (Parquet + manifest)
 ```
 
-- Los inyectores se registran en la configuración. El proyecto 5 añadirá inyectores de patrones de blanqueo.
-- El proyecto 3 consume `description_raw` con `true_category_id` de `tx_labels`.
+- Injectors are registered in the configuration. Project 5 will add money-laundering pattern injectors.
+- Project 3 consumes `description_raw` with `true_category_id` from `tx_labels`.
 
-## 7. Fuera de alcance
+## 7. Out of scope
 
-- Recibos devueltos por impago.
-- Varios estilos de extracto (varios bancos).
-- Contrapartes acopladas entre usuarios (el Bizum de A a B en ambos lados).
-- Tipos de cambio reales del BCE.
-- Categorizador bancario imperfecto (proyecto 3).
-- Cuentas en divisa distinta del euro.
+- Direct debits returned for non-payment.
+- Several statement styles (several banks).
+- Counterparties coupled between users (A's Bizum to B on both sides).
+- Real ECB exchange rates.
+- An imperfect bank categoriser (project 3).
+- Accounts in a currency other than the euro.
 
-## 8. Pendiente
+## 8. Pending
 
-- [x] ADR-008: `fecha` es la fecha de cargo y el puerto `Clock` queda formalizado.
-- [ ] Verificar el convenio de signo de `transactionAmount` y la equivalencia ISO 20022 de cada `tx_code` en NextGenPSD2.
-- [ ] Confirmar la longitud máxima del concepto de Bizum. (Provisional: 35 caracteres en `config.yaml`, `traps.bizum_concept_max_length`; las plantillas de trampas de Bizum están escritas para ese límite.)
-- [ ] Obtener el reparto del gasto por grupos de la Encuesta de Presupuestos Familiares para la calibración.
-- [ ] Fijar los rangos numéricos de cada arquetipo durante la implementación.
+- [x] ADR-008: `fecha` is the charge date and the `Clock` port is formalised.
+- [ ] Verify the sign convention of `transactionAmount` and the ISO 20022 equivalent of each `tx_code` in NextGenPSD2.
+- [ ] Confirm the maximum length of a Bizum concept. (Provisional: 35 characters in `config.yaml`, `traps.bizum_concept_max_length`; the Bizum trap templates are written for that limit.)
+- [ ] Obtain the spending split by group from the household budget survey for calibration.
+- [ ] Fix the numeric ranges of each archetype during implementation.

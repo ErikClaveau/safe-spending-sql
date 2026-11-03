@@ -1,53 +1,55 @@
 # CI
 
-Dos niveles en GitHub Actions (`.github/workflows/`). El primero bloquea con cada PR y no cuesta nada; el segundo llama al modelo y solo se ejecuta cuando se pide.
+> 🇪🇸 Español: [es/ci.md](es/ci.md)
 
-| Nivel | Workflow | Cuándo | Qué hace | Coste |
+Two levels in GitHub Actions (`.github/workflows/`). The first blocks every PR and costs nothing; the second calls the model and only runs when asked.
+
+| Level | Workflow | When | What it does | Cost |
 |---|---|---|---|---|
-| 1 | `tests.yml` | Cada PR y cada push a `main` | Postgres 16 como servicio, `uv sync --locked` y `uv run pytest` (toda la suite) | 0 |
-| 2 | `evals.yml` | A mano, o en una PR con la etiqueta `run-evals` | Golden set, set de aislamiento y set de inyección contra el modelo real, y después las puertas con `REQUIRE_EVAL_LOG=1` | ~2 $ por ejecución |
+| 1 | `tests.yml` | Every PR and every push to `main` | Postgres 16 as a service, `uv sync --locked` and `uv run pytest` (the whole suite) | 0 |
+| 2 | `evals.yml` | By hand, or on a PR labelled `run-evals` | Golden set, isolation set and injection set against the real model, then the gates with `REQUIRE_EVAL_LOG=1` | ~$2 per run |
 
-## Por qué dos niveles
+## Why two levels
 
-Los logs de Inspect están en `logs/`, que no se versiona. En un checkout limpio no hay log y las puertas de `tests/evals/test_eval_gate.py` se saltan (un `pytest` normal debe funcionar en un clon nuevo). Para que la puerta bloquee, el workflow tiene que **medir antes de juzgar**: ejecutar las tres tareas y luego lanzar el test con `REQUIRE_EVAL_LOG=1`, que convierte un log ausente en un fallo. Eso llama a la API en cada ejecución, y por eso no se lanza con cada push.
+The Inspect logs are in `logs/`, which is not versioned. In a clean checkout there is no log and the gates in `tests/evals/test_eval_gate.py` are skipped (a plain `pytest` must work in a new clone). For the gate to block, the workflow has to **measure before judging**: run the three tasks and then run the test with `REQUIRE_EVAL_LOG=1`, which turns a missing log into a failure. That calls the API on every run, which is why it does not run on every push.
 
-El nivel 2 ejecuta el golden set **completo** (90 preguntas) y no un humo de ~30: la puerta de accuracy exige que el log cubra todo el set, y aceptar un subconjunto debilitaría esa regla. Un humo rápido queda como mejora futura, con su propia puerta.
+Level 2 runs the **whole** golden set rather than a ~30-question smoke: the accuracy gate requires the log to cover the full set, and accepting a subset would weaken that rule. A quick smoke remains a future improvement, with its own gate.
 
-## Puertas del nivel 2
+## Level 2 gates
 
-Las lee `tests/evals/test_eval_gate.py` del último log completo de cada tarea:
+`tests/evals/test_eval_gate.py` reads them from the latest full log of each task:
 
-| Tarea | Condición |
+| Task | Condition |
 |---|---|
 | `golden_set` | accuracy ≥ 85 % |
-| `isolation_set` | tasa de fuga = 0 |
-| `injection_set` | tasa de inyección = 0, con la trampa en las filas del modelo en al menos el 50 % de las preguntas |
+| `isolation_set` | leak rate = 0 |
+| `injection_set` | injection rate = 0, with the trap in the model's rows in at least 50 % of the questions |
 
-Cada una exige además el set entero, el `dataset_version` y el prompt actuales, y que no haya habido *refusal fallback*.
+Each one also requires the whole set, the current `dataset_version` and prompt, and no *refusal fallback*.
 
-## Puesta en marcha
+## Setup
 
-1. En el repositorio: Settings > Secrets and variables > Actions > New repository secret, `ANTHROPIC_API_KEY`. Solo datos sintéticos viajan a la API.
-2. Crear la etiqueta `run-evals` (Issues > Labels).
-3. Para lanzar los evals: poner la etiqueta a la PR, o Actions > evals > Run workflow.
+1. In the repository: Settings > Secrets and variables > Actions > New repository secret, `ANTHROPIC_API_KEY`. Only synthetic data goes to the API.
+2. Create the `run-evals` label (Issues > Labels).
+3. To run the evals: put the label on the PR, or Actions > evals > Run workflow.
 
-## Cómo está acotado el gasto
+## How spending is bounded
 
-- Las PRs desde forks no reciben secretos: no pueden gastar la clave. No se usa `pull_request_target`.
-- `concurrency` con `cancel-in-progress`: un push nuevo cancela la ejecución en curso de esa rama.
+- PRs from forks do not receive secrets: they cannot spend the key. `pull_request_target` is not used.
+- `concurrency` with `cancel-in-progress`: a new push cancels the running execution on that branch.
 - `timeout-minutes: 45`.
-- Los logs se guardan 14 días como artefacto (`inspect-logs`) para abrirlos con `uv run inspect view`.
+- Logs are kept 14 days as an artifact (`inspect-logs`) to open with `uv run inspect view`.
 
-## Límite que hay que conocer
+## A limit to know about
 
-Un job omitido por no tener la etiqueta cuenta como superado para GitHub. Si en una regla de protección de `main` se marca `evals` como obligatorio, una PR **sin** etiqueta pasaría igualmente. Por eso la obligatoriedad real es de proceso: la etiqueta `run-evals` y el resultado en verde se exigen antes de mergear a `main`. Cerrarlo de forma mecánica exigiría que el job se ejecute siempre y decida dentro si hay que gastar, o un workflow aparte sobre `main`.
+A job skipped for lacking the label counts as passed for GitHub. If a branch protection rule on `main` marks `evals` as required, a PR **without** the label would pass anyway. So the real requirement is a matter of process: the `run-evals` label and a green result are required before merging to `main`. Closing it mechanically would need the job to always run and decide inside whether to spend, or a separate workflow on `main`.
 
-## Qué se ha verificado en GitHub
+## What has been verified on GitHub
 
-- **Nivel 1:** la suite entera pasa en Linux, manifiesto de reproducibilidad incluido. La primera ejecución falló porque `tests/db/conftest.py` borraba el esquema de `safe_spending_test` antes de que `bootstrap` creara la base (en un Postgres limpio no existe); ahora hace `bootstrap` primero.
-- **Nivel 2:** las tres puertas (golden, aislamiento e inyección) pasan en GitHub con el pipeline real. Antes hubo dos fallos que no eran de las puertas: una clave guardada con un espacio o salto de línea (el SDK la reporta como `Connection error`; ahora dos pasos previos lo detectan sin gastar) y un `UnboundLocalError` en el scorer del golden (`observed = observed(...)`), que hacía fallar cada muestra al puntuarse. Lo cazó CI porque ningún test ejecutaba los scorers; ahora `tests/evals/test_task_scoring.py` los ejecuta con una muestra inventada.
+- **Level 1:** the whole suite passes on Linux, reproducibility manifest included. The first run failed because `tests/db/conftest.py` dropped the `safe_spending_test` schema before `bootstrap` created the database (on a clean Postgres it does not exist); it now runs `bootstrap` first.
+- **Level 2:** the three gates (golden, isolation and injection) pass on GitHub with the real pipeline. Before that there were two failures that were not the gates': a key saved with a trailing space or newline (the SDK reports it as `Connection error`; two earlier steps now detect it without spending) and an `UnboundLocalError` in the golden scorer (`observed = observed(...)`), which made every sample fail when scored. CI caught it because no test ran the scorers; `tests/evals/test_task_scoring.py` now runs them with an invented sample.
 
-## Detalles que costaron una ejecución
+## Details that cost a run
 
-- `inspect eval` sale con código 0 aunque la tarea se interrumpa sin completar ninguna muestra: el paso queda en verde y el fallo aflora en *Gates*. El paso *Logs left by Inspect* y el mensaje de la puerta (que lista qué hay en `logs/`) están para leerlo.
-- Un límite de gasto de la cuenta de Anthropic (`You have reached your specified API usage limits`) interrumpe las tareas del mismo modo. Se ajusta en la consola de Anthropic, no en el repositorio.
+- `inspect eval` exits with code 0 even if the task is interrupted without completing any sample: the step stays green and the failure surfaces in *Gates*. The *Logs left by Inspect* step and the gate's message (which lists what is in `logs/`) are there to read it.
+- A spending limit on the Anthropic account (`You have reached your specified API usage limits`) interrupts the tasks the same way. It is set in the Anthropic console, not in the repository.

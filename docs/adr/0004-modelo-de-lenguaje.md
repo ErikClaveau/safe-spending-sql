@@ -1,52 +1,54 @@
-# ADR-004: Modelo frontera por API detrás del puerto `LLMProvider`
+# ADR-004: A frontier model through an API behind the `LLMProvider` port
 
-**Estado:** Aceptado
-**Fecha:** 2026-10-21
-**Decide:** Erik Claveau
-**Relacionados:** ADR-003 (evals), ADR-006 (salida del LLM)
+> 🇪🇸 Español: [../es/adr/0004-modelo-de-lenguaje.md](../es/adr/0004-modelo-de-lenguaje.md)
 
-## Contexto
+**Status:** Accepted
+**Date:** 2026-10-21
+**Decides:** Erik Claveau
+**Related:** ADR-003 (evals), ADR-006 (LLM output)
 
-El baseline de la semana 3 fija el listón de calidad, latencia y coste. Se necesita una cifra fiable de execution accuracy en castellano sobre las vistas semánticas, no una cifra limitada por un modelo pequeño. El proyecto 3 (modelo local o afinado) usará este baseline como referencia (plan §2.3).
+## Context
 
-## Decisión
+The week 3 baseline sets the bar for quality, latency and cost. A reliable execution accuracy figure in Spanish over the semantic views is needed, not one capped by a small model. Project 3 (local or fine-tuned model) will use this baseline as its reference (plan §2.3).
 
-- El baseline usa un **modelo frontera por API** (Claude), detrás del puerto `LLMProvider`. El resto del pipeline no conoce al proveedor.
-- El **modelo concreto es configuración**, no código. Para el baseline: `claude-sonnet-5-5`, como equilibrio entre calidad y coste. En la semana 5 se comparan `claude-haiku-5-5` y `claude-opus-5-5` con el mismo golden set para publicar la relación coste/calidad.
-- Cada traza y cada log de evals registran el identificador exacto del modelo, tokens y coste.
-- Los modelos locales (Ollama) quedan fuera del alcance de este proyecto. El puerto permite añadirlos como adaptador.
-- Las claves de API se leen de variables de entorno y nunca se versionan. A la API solo se envían datos sintéticos.
+## Decision
 
-## Opciones consideradas
+- The baseline uses a **frontier model through an API** (Claude), behind the `LLMProvider` port. The rest of the pipeline does not know the provider.
+- The **specific model is configuration**, not code. For the baseline: `claude-sonnet-5-5`, as a balance between quality and cost. In week 5 `claude-haiku-5-5` and `claude-opus-5-5` are compared on the same golden set to publish the cost/quality ratio.
+- Every trace and eval log records the exact model identifier, tokens and cost.
+- Local models (Ollama) are outside this project's scope. The port allows adding them as an adapter.
+- API keys are read from environment variables and never versioned. Only synthetic data is sent to the API.
 
-| Opción | Calidad esperada | Coste | Reproducibilidad | Baseline para el proyecto 3 |
+## Options considered
+
+| Option | Expected quality | Cost | Reproducibility | Baseline for project 3 |
 |---|---|---|---|---|
-| **Frontera por API** | Alta | Por token | Depende de la versión del modelo | Sí |
-| Local (Ollama) | Menor en castellano y SQL | Nulo por consulta | Alta | Mezcla dos variables |
-| Dos modelos desde el inicio | Alta | Por token, doble | Media | Sí, más rico |
+| **Frontier through an API** | High | Per token | Depends on the model version | Yes |
+| Local (Ollama) | Lower in Spanish and SQL | None per query | High | Mixes two variables |
+| Two models from the start | High | Per token, double | Medium | Yes, richer |
 
-## Consecuencias
+## Consequences
 
-**Más fácil**
-- Un baseline representativo con poco esfuerzo de despliegue.
-- Cambiar de modelo es un cambio de configuración, medible con las mismas evals.
+**Easier**
+- A representative baseline with little deployment effort.
+- Changing model is a configuration change, measurable with the same evals.
 
-**Más difícil**
-- El coste y la latencia dependen de un tercero. Las ejecuciones completas cuestan dinero, por lo que la CI usa el subconjunto smoke.
-- Los alias de modelo pueden cambiar: hay que fijar la versión exacta en cada experimento.
-- La reproducibilidad es estadística, no bit a bit. `claude-sonnet-5-5` rechaza `temperature`, `top_p` y `top_k` distintos del valor por defecto, así que la variación solo se controla con el modelo fijado y el `effort`, que se fija explícitamente en la configuración (adaptador: `medium` por defecto).
-- Se activa la alternativa automática del proveedor ante un rechazo de seguridad (`fallbacks: "default"`). Si salta, el modelo que respondió no es el pedido: `LLMResponse.model` lo registra y el coste se calcula con el precio del modelo que respondió. Se puede desactivar por configuración para una medición limpia.
+**Harder**
+- Cost and latency depend on a third party. Full runs cost money, so CI uses the smoke subset.
+- Model aliases can change: the exact version must be pinned in each experiment.
+- Reproducibility is statistical, not bit for bit. `claude-sonnet-5-5` rejects `temperature`, `top_p` and `top_k` other than the default, so variation is controlled only by pinning the model and `effort`, which is set explicitly in the configuration (adapter: `medium` by default).
+- The provider's automatic alternative on a safety refusal is on (`fallbacks: "default"`). If it triggers, the model that answered is not the requested one: `LLMResponse.model` records it and the cost is computed with the price of the model that answered. It can be turned off by configuration for a clean measurement.
 
-**Resultado de la comparación (2026-10-28)**
-- Golden set v0 completo, mismo prompt y esfuerzo: Haiku 84,4 %, Sonnet 91,1 %, Opus 90,0 % de acierto tolerante, a $0,9, $13,2 y $29,8 por 1.000 consultas (detalle en `docs/iteraciones-evals.md`).
-- Segunda comparación (2026-10-29), con 152 preguntas, prompt v4 y referencias corregidas: Sonnet 98,0 % ($13,6 por 1.000 consultas), Haiku 89,5 % y 88,8 % en dos ejecuciones ($1,1). Haiku queda 9 puntos por debajo, con fallos de formato (`generation_failed`) y alguna cifra equivocada que parece correcta; sus gates de seguridad dan 0. Se mantiene Sonnet 5.5; Haiku queda como alternativa de bajo coste documentada.
-- Opus no justifica el doble de coste y Haiku pierde 6 puntos, incluido un caso en que responde donde debía rechazar. Se mantiene **Sonnet 5.5**. Una ejecución por modelo: las diferencias de 1-2 puntos entre Sonnet y Opus no son concluyentes.
+**Comparison result (2026-10-28)**
+- Full golden set v0, same prompt and effort: Haiku 84.4 %, Sonnet 91.1 %, Opus 90.0 % tolerant accuracy, at $0.9, $13.2 and $29.8 per 1,000 queries (detail in `docs/iteraciones-evals.md`).
+- Second comparison (2026-10-29), with 152 questions, prompt v4 and corrected references: Sonnet 98.0 % ($13.6 per 1,000 queries), Haiku 89.5 % and 88.8 % in two runs ($1.1). Haiku is 9 points below, with format failures (`generation_failed`) and the occasional wrong figure that looks right; its security gates give 0. **Sonnet 5.5** is kept; Haiku stays as a documented low-cost alternative.
+- Opus does not justify double the cost and Haiku loses 6 points, including a case where it answers where it should refuse. **Sonnet 5.5** is kept. One run per model: differences of 1-2 points between Sonnet and Opus are not conclusive.
 
-**A revisar**
-- Si el coste de las evals completas resulta alto, ejecutar la completa solo de forma nocturna o manual.
+**To revisit**
+- If the cost of full evals turns out high, run the full set only nightly or by hand.
 
-## Próximos pasos
+## Next steps
 
-1. [ ] Adaptador `LLMProvider` para la API de Claude, con tokens y coste en la respuesta.
-2. [ ] Modelo y parámetros en la configuración, y su registro en `TraceSink`.
-3. [x] Medir el coste por 1.000 consultas del modelo base (plan §2.3): $13,2 con Sonnet 5.5, sin síntesis de respuesta.
+1. [ ] `LLMProvider` adapter for the Claude API, with tokens and cost in the response.
+2. [ ] Model and parameters in the configuration, and their recording in `TraceSink`.
+3. [x] Measure the base model's cost per 1,000 queries (plan §2.3): $13.2 with Sonnet 5.5, without answer synthesis.
