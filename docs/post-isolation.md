@@ -44,4 +44,6 @@ One more thing the data taught me: in one early run the model did not obey the p
 
 Put the guarantee where the model cannot reach it, then spend your effort trying to break that place. The model is allowed to be wrong, because being wrong costs accuracy, not other people's data.
 
+A 3-minute demo of the two attacks against the running app: https://github.com/user-attachments/assets/24373607-5acc-49ad-a1bf-fe5c0739b1c5
+
 Code, tests, the lab and every number above: [`README`](../README.md), [ADR-002](adr/0002-aislamiento-entre-usuarios.md) and the [adversarial set](adversarial-set.md).

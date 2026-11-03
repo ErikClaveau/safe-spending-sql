@@ -44,4 +44,6 @@ Una cosa más que me enseñaron los datos: en una ejecución temprana el modelo 
 
 Pon la garantía donde el modelo no llega, y dedica tu esfuerzo a intentar romper ese sitio. El modelo puede equivocarse, porque equivocarse cuesta acierto, no los datos de otras personas.
 
+Una demo de 3 minutos de los dos ataques contra la app en marcha (narrada en inglés): https://github.com/user-attachments/assets/24373607-5acc-49ad-a1bf-fe5c0739b1c5
+
 Código, tests, el laboratorio y cada número de arriba: el [README](../../README.es.md), el [ADR-002](adr/0002-aislamiento-entre-usuarios.md) y el [set adversarial](adversarial-set.md).

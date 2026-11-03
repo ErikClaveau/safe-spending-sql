@@ -10,6 +10,10 @@ Asistente text-to-SQL sobre datos bancarios personales **sintéticos**, construi
 
 Solo datos sintéticos: ninguna transacción real, propia ni anonimizada en ningún paso.
 
+**Vídeo de la demo (3 min):** el asistente respondiendo y después dos ataques (uno en la pregunta y otro plantado en los datos) y lo que hace la base de datos. Narrado en inglés.
+
+https://github.com/user-attachments/assets/24373607-5acc-49ad-a1bf-fe5c0739b1c5
+
 ## Resultados
 
 Medidos en GitHub Actions (Linux) con `claude-sonnet-5-5`, esfuerzo `medium`, prompt `v4`, dataset `0.5.0`.

@@ -10,6 +10,10 @@ A text-to-SQL assistant over **synthetic** personal banking data, built around t
 
 Synthetic data only: no real, own or anonymized transactions at any step.
 
+**Demo video (3 min):** the assistant answering, then two attacks (one in the question, one planted in the data) and what the database does about them.
+
+https://github.com/user-attachments/assets/24373607-5acc-49ad-a1bf-fe5c0739b1c5
+
 ## Results
 
 Measured in GitHub Actions on Linux with `claude-sonnet-5-5`, effort `medium`, prompt `v4`, dataset `0.5.0`.

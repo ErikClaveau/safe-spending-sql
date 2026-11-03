@@ -344,15 +344,15 @@ Regla: si una semana se desborda, recortar alcance (menos categorías de pregunt
 
 ## 15. Definition of Done
 
-- [ ] `docker compose up` levanta todo con datos sintéticos.
-- [ ] Golden set y set adversarial versionados en el repositorio.
-- [ ] CI: tests + evals smoke + set adversarial bloqueando merges.
-- [ ] README con: problema, arquitectura, **tabla de resultados**, iteraciones, limitaciones conocidas y cómo reproducir.
-- [ ] Entre 6 y 10 ADRs.
-- [ ] Diccionario de datos en inglés de la capa semántica, verificado en CI.
-- [ ] Documento de diseño del generador y ficha del dataset (`docs/dataset-card.md`).
-- [ ] Demo (app o vídeo de 2-3 minutos).
-- [ ] Post corto explicando una decisión con números (p. ej. "cómo garantizo que un LLM no ve datos de otros clientes").
+- [x] `docker compose up` levanta todo con datos sintéticos.
+- [x] Golden set y set adversarial versionados en el repositorio.
+- [x] CI: tests + evals (set completo, no un humo: la puerta exige el set entero) + set adversarial bloqueando merges.
+- [x] README con: problema, arquitectura, **tabla de resultados**, iteraciones, limitaciones conocidas y cómo reproducir.
+- [x] Entre 6 y 10 ADRs.
+- [x] Diccionario de datos en inglés de la capa semántica, verificado en CI.
+- [x] Documento de diseño del generador y ficha del dataset (`docs/dataset-card.md`).
+- [x] Demo (app o vídeo de 2-3 minutos).
+- [x] Post corto explicando una decisión con números (p. ej. "cómo garantizo que un LLM no ve datos de otros clientes").
 
 ---
 
@@ -417,3 +417,5 @@ Regla: si una semana se desborda, recortar alcance (menos categorías de pregunt
 | 2026-10-29 | Semana 6 abierta. ADR-009 aceptado (Streamlit en proceso, sin FastAPI). Idiomas: README y docs en inglés como principal, con espejo en español en `docs/es/` y enlace cruzado en cada documento; una sola fuente por documento (el español para lo ya escrito, el inglés primero para lo nuevo); este plan y `iteraciones-evals.md` quedan solo en español; los `COMMENT ON` siguen en español porque los lee el modelo. Test de paridad en CI pendiente. |
 
 | 2026-10-29 | Semana 6: ADR-009 aceptado y demo de Streamlit construida (`pipeline/factory.py` compartida con las evals, panel «intenta romperlo» con las reglas de las puertas), `docker compose up --build` completo (servicios `setup` y `app`), ficha del dataset y README en inglés y español. Todos los documentos pasan a inglés con espejo en `docs/es/` y test de paridad en CI (`tests/docs/`); el plan y `iteraciones-evals.md` siguen solo en español y `data-dictionary.md` solo en inglés. Pendiente: vídeo, post y cierre de la definición de hecho. |
+
+| 2026-11-03 | Semana 6 cerrada. Vídeo de la demo (3:01, narrado en inglés) grabado y enlazado desde ambos README y el post; ADR-009 completo. Post publicable en `docs/post-isolation.md`. Definición de hecho (§15) marcada entera. Matiz: el CI corre el golden completo y no un humo (decisión del 2026-10-27) y la obligatoriedad de las evals antes de mergear a `main` es una regla de proceso. |
